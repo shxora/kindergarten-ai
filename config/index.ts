@@ -3,11 +3,11 @@ export const APP_ID = `${process.env.NEXT_PUBLIC_APP_ID}`
 export const API_KEY = `${process.env.NEXT_PUBLIC_APP_KEY}`
 export const API_URL = `${process.env.NEXT_PUBLIC_API_URL}`
 export const APP_INFO: AppInfo = {
-  title: 'Chat APP',
-  description: '',
-  copyright: '',
+  title: '麦芽幼教 AI',
+  description: '专为幼儿园教师打造的智慧教研助手',
+  copyright: '麦芽幼教 AI',
   privacy_policy: '',
-  default_language: 'en',
+  default_language: 'zh-Hans',
   disable_session_same_site: false, // set it to true if you want to embed the chatbot in an iframe
 }
 

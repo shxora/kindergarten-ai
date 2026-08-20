@@ -28,10 +28,11 @@ const UploadOnlyFromLocal: FC<UploadOnlyFromLocalProps> = ({
       {
         hovering => (
           <div className={`
-            relative flex items-center justify-center w-8 h-8 rounded-lg cursor-pointer
-            ${hovering && 'bg-gray-100'}
+            maiya-media-button maiya-photo-button relative flex items-center justify-center h-9 px-3 rounded-full cursor-pointer
+            ${hovering && 'opacity-80'}
           `}>
-            <ImagePlus className='w-4 h-4 text-gray-500' />
+            <ImagePlus className='w-4 h-4' />
+            <span>拍照</span>
           </div>
         )
       }
@@ -75,10 +76,11 @@ const UploaderButton: FC<UploaderButtonProps> = ({
     >
       <PortalToFollowElemTrigger onClick={handleToggle}>
         <div className={`
-          relative flex items-center justify-center w-8 h-8 hover:bg-gray-100 rounded-lg
+          maiya-media-button maiya-photo-button relative flex items-center justify-center h-9 px-3 rounded-full
           ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
         `}>
           <ImagePlus className='w-4 h-4 text-gray-500' />
+          <span>拍照</span>
         </div>
       </PortalToFollowElemTrigger>
       <PortalToFollowElemContent className='z-50'>

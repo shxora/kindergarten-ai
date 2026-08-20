@@ -6,9 +6,11 @@ import { SupportUploadFileTypes } from './types'
 
 interface FileInputProps {
   fileConfig: FileUpload
+  acceptOverride?: string
 }
 const FileInput = ({
   fileConfig,
+  acceptOverride,
 }: FileInputProps) => {
   const files = useStore(s => s.files)
   const { handleLocalFileUpload } = useFile(fileConfig)
@@ -30,7 +32,7 @@ const FileInput = ({
   const allowedFileTypes = fileConfig.allowed_file_types
   const isCustom = allowedFileTypes?.includes(SupportUploadFileTypes.custom)
   const exts = isCustom ? (fileConfig.allowed_file_extensions || []) : (allowedFileTypes?.map(type => FILE_EXTS[type]) || []).flat().map(item => `.${item}`)
-  const accept = exts.join(',')
+  const accept = acceptOverride || exts.join(',')
 
   return (
     <input

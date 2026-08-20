@@ -1,6 +1,18 @@
 .answerIcon {
   position: relative;
-  background: url(./icons/robot.svg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff4d7;
+  border: 2px solid #f5cf72;
+  border-radius: 50%;
+}
+
+.answerIcon::after {
+  content: '芽';
+  color: #e58b38;
+  font-weight: 800;
+  font-size: 17px;
 }
 
 .typeingIcon {
@@ -19,18 +31,24 @@
 
 
 .questionIcon {
-  background: url(./icons/default-avatar.jpg);
-  background-size: contain;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #a6e6cd, #72c9ad);
+  border: 2px solid #eafff6;
   border-radius: 50%;
+}
+
+.questionIcon::after {
+  content: '师';
+  color: #fff;
+  font-weight: 800;
+  font-size: 15px;
 }
 
 .answer::before,
 .question::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  width: 8px;
-  height: 12px;
+  display: none;
 }
 
 .answer::before {

@@ -4,7 +4,6 @@ import React, { useEffect, useRef } from 'react'
 import cn from 'classnames'
 import { useTranslation } from 'react-i18next'
 import Textarea from 'rc-textarea'
-import s from './style.module.css'
 import Answer from './answer'
 import Question from './question'
 import type { FeedbackFunc } from './type'
@@ -18,6 +17,7 @@ import { useImageFiles } from '@/app/components/base/image-uploader/hooks'
 import FileUploaderInAttachmentWrapper from '@/app/components/base/file-uploader-in-attachment'
 import type { FileEntity, FileUpload } from '@/app/components/base/file-uploader-in-attachment/types'
 import { getProcessedFiles } from '@/app/components/base/file-uploader-in-attachment/utils'
+import { PaperAirplaneIcon } from '@heroicons/react/24/solid'
 
 export interface IChatProps {
   chatList: ChatItem[]
@@ -176,20 +176,19 @@ const Chat: FC<IChatProps> = ({
       </div>
       {
         !isHideSendInput && (
-          <div className='fixed z-10 bottom-0 left-1/2 transform -translate-x-1/2 pc:ml-[122px] tablet:ml-[96px] mobile:ml-0 pc:w-[794px] tablet:w-[794px] max-w-full mobile:w-full px-3.5'>
-            <div className='p-[5.5px] max-h-[150px] bg-white border-[1.5px] border-gray-200 rounded-xl overflow-y-auto'>
+          <div className='fixed z-10 bottom-5 left-1/2 transform -translate-x-1/2 pc:ml-[122px] tablet:ml-[96px] mobile:ml-0 pc:w-[860px] tablet:w-[794px] max-w-full mobile:w-full px-3.5'>
+            <div className='maiya-composer p-2 max-h-[190px] overflow-y-auto'>
               {
                 visionConfig?.enabled && (
                   <>
-                    <div className='absolute bottom-2 left-2 flex items-center'>
+                    <div className='flex items-center gap-2 mb-1'>
                       <ChatImageUploader
                         settings={visionConfig}
                         onUpload={onUpload}
                         disabled={files.length >= visionConfig.number_limits}
                       />
-                      <div className='mx-1 w-[1px] h-4 bg-black/5' />
                     </div>
-                    <div className='pl-[52px]'>
+                    <div>
                       <ImageList
                         list={files}
                         onRemove={onRemove}
@@ -203,19 +202,19 @@ const Chat: FC<IChatProps> = ({
               }
               {
                 fileConfig?.enabled && (
-                  <div className={`${visionConfig?.enabled ? 'pl-[52px]' : ''} mb-1`}>
+                  <div className='mb-1'>
                     <FileUploaderInAttachmentWrapper
                       fileConfig={fileConfig}
                       value={attachmentFiles}
                       onChange={setAttachmentFiles}
+                      variant='media'
                     />
                   </div>
                 )
               }
               <Textarea
                 className={`
-                  block w-full px-2 pr-[118px] py-[7px] leading-5 max-h-none text-base text-gray-700 outline-none appearance-none resize-none
-                  ${visionConfig?.enabled && 'pl-12'}
+                  block w-full px-3 pr-[54px] py-[9px] leading-5 max-h-none text-base text-[#5d4935] bg-transparent outline-none appearance-none resize-none
                 `}
                 value={query}
                 onChange={handleContentChange}
@@ -223,8 +222,7 @@ const Chat: FC<IChatProps> = ({
                 onKeyDown={handleKeyDown}
                 autoSize
               />
-              <div className="absolute bottom-2 right-6 flex items-center h-8">
-                <div className={`${s.count} mr-3 h-5 leading-5 text-sm bg-gray-50 text-gray-500 px-2 rounded`}>{query.trim().length}</div>
+              <div className="absolute bottom-3 right-5 flex items-center h-9">
                 <Tooltip
                   selector='send-tip'
                   htmlContent={
@@ -234,7 +232,7 @@ const Chat: FC<IChatProps> = ({
                     </div>
                   }
                 >
-                  <div className={`${s.sendBtn} w-8 h-8 cursor-pointer rounded-md`} onClick={handleSend}></div>
+                  <button type='button' className='maiya-send-button' aria-label='发送消息' onClick={handleSend}><PaperAirplaneIcon className='w-4 h-4' /></button>
                 </Tooltip>
               </div>
             </div>

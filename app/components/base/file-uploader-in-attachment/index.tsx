@@ -26,9 +26,11 @@ interface Option {
 }
 interface FileUploaderInAttachmentProps {
   fileConfig: FileUpload
+  variant?: 'default' | 'media'
 }
 const FileUploaderInAttachment = ({
   fileConfig,
+  variant = 'default',
 }: FileUploaderInAttachmentProps) => {
   const { t } = useTranslation()
   const files = useStore(s => s.files)
@@ -85,6 +87,31 @@ const FileUploaderInAttachment = ({
     }
   }, [renderButton, renderTrigger, fileConfig])
 
+  if (variant === 'media') {
+    const canUploadLocal = fileConfig.allowed_file_upload_methods?.includes(TransferMethod.local_file)
+    return (
+      <div className='maiya-file-area'>
+        {canUploadLocal && (
+          <div className='maiya-media-button maiya-audio-button relative flex items-center justify-center h-9 px-3 rounded-full cursor-pointer'>
+            <span className='text-base leading-none'>🎙️</span><span>语音</span>
+            <FileInput fileConfig={fileConfig} acceptOverride='.mp3,.m4a,.wav,.aac,.ogg,.flac' />
+          </div>
+        )}
+        {canUploadLocal && (
+          <div className='maiya-media-button maiya-file-button relative flex items-center justify-center h-9 px-3 rounded-full cursor-pointer'>
+            <span className='text-base leading-none'>📄</span><span>教研文件</span>
+            <FileInput fileConfig={fileConfig} acceptOverride='.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md' />
+          </div>
+        )}
+        <div className='maiya-uploaded-files'>
+          {files.map(file => (
+            <FileItem key={file.id} file={file} showDeleteAction showDownloadAction={false} onRemove={() => handleRemoveFile(file.id)} onReUpload={() => handleReUploadFile(file.id)} />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div>
       <div className='flex items-center space-x-1'>
@@ -112,18 +139,20 @@ interface FileUploaderInAttachmentWrapperProps {
   value?: FileEntity[]
   onChange: (files: FileEntity[]) => void
   fileConfig: FileUpload
+  variant?: 'default' | 'media'
 }
 const FileUploaderInAttachmentWrapper = ({
   value,
   onChange,
   fileConfig,
+  variant,
 }: FileUploaderInAttachmentWrapperProps) => {
   return (
     <FileContextProvider
       value={value}
       onChange={onChange}
     >
-      <FileUploaderInAttachment fileConfig={fileConfig} />
+      <FileUploaderInAttachment fileConfig={fileConfig} variant={variant} />
     </FileContextProvider>
   )
 }
