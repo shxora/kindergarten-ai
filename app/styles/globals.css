@@ -120,7 +120,7 @@ body {
 .maiya-profile { background: linear-gradient(135deg, #ffcb89, #ed9756); color: #fff; font-size: 14px; font-weight: 700; box-shadow: 0 4px 10px rgba(227, 143, 70, .25); }
 .maiya-header-icon { background: #fff6e6; cursor: pointer; }
 .maiya-content-shell { display: flex; flex: 1; min-height: 0; gap: 12px; width: 100%; padding: 12px; margin: 0 auto; overflow: hidden; }
-.maiya-sidebar { height: 100%; background: rgba(255, 255, 255, .78); border: 1px solid #eadfce; border-radius: 22px; overflow-y: auto; overflow-x: hidden; box-shadow: 0 8px 24px rgba(110, 76, 35, .06); }
+.maiya-sidebar { height: auto; min-height: 0; align-self: stretch; background: rgba(255, 255, 255, .78); border: 1px solid #eadfce; border-radius: 22px; overflow-y: auto; overflow-x: hidden; box-shadow: 0 8px 24px rgba(110, 76, 35, .06); }
 .maiya-new-chat { color: #e58b38 !important; background: #fff3d5 !important; border: 1px solid #f7d793 !important; border-radius: 14px !important; font-weight: 700 !important; }
 .maiya-conversation-active { color: #d87e2d; background: #fff3d8; }
 .maiya-answer-card { background: #fffdf9; border: 1px solid #f4cf85; box-shadow: 0 5px 14px rgba(110, 76, 35, .06); }

@@ -680,7 +680,7 @@ const Main: FC<IMainProps> = () => {
           </div>
         )}
         {/* main */}
-        <div className='min-w-0 min-h-0 flex-grow flex flex-col h-full overflow-y-auto'>
+        <div className='min-w-0 min-h-0 flex-grow flex flex-col overflow-y-auto'>
           {hasRequiredInputs && (
             <ConfigSence
               conversationName={conversationName}
