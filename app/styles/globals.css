@@ -129,8 +129,9 @@ body {
 .maiya-media-button { gap: 5px; width: fit-content; font-size: 13px; font-weight: 700; border: 1px solid; transition: transform .15s ease, opacity .15s ease; }
 .maiya-media-button:hover { transform: translateY(-1px); opacity: .86; }
 .maiya-photo-button { color: #477dbe; background: #eaf4ff; border-color: #bfdbf6; }
-.maiya-file-button { color: #a17528; background: #fff7da; border-color: #f6dfa0; }
-.maiya-file-area { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%; }
+.maiya-file-button { position: absolute; right: 54px; bottom: 12px; z-index: 2; color: #7f8da3; background: transparent !important; border: 0 !important; box-shadow: none !important; }
+.maiya-file-button:hover { color: #e58b38; transform: none; }
+.maiya-file-area { position: static; display: block; width: 100%; }
 .maiya-uploaded-files { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; width: 100%; margin-top: 8px; }
 .maiya-send-button { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 0; border-radius: 50%; color: #fff; background: linear-gradient(135deg, #f4b75e, #e68b3e); box-shadow: 0 4px 10px rgba(220, 137, 57, .28); cursor: pointer; }
 .maiya-send-button:hover { filter: brightness(1.04); transform: translateY(-1px); }
