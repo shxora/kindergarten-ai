@@ -95,8 +95,17 @@ const Main: FC<IMainProps> = () => {
   const hasSetInputs = (() => {
     if (!isNewConversation) { return true }
 
-    return isChatStarted
+    const hasRequiredInputs = promptConfig?.prompt_variables?.some(item => item.required)
+    return isChatStarted || !hasRequiredInputs
   })()
+
+  const hasRequiredInputs = promptConfig?.prompt_variables?.some(item => item.required) ?? false
+
+  useEffect(() => {
+    if (inited && isNewConversation && !isChatStarted && !hasRequiredInputs && chatList.length === 0) {
+      setChatList(generateNewChatListWithOpenStatement())
+    }
+  }, [inited, isNewConversation, isChatStarted, hasRequiredInputs])
 
   const conversationName = currConversationInfo?.name || t('app.chat.newChatDefaultName') as string
   const conversationIntroduction = currConversationInfo?.introduction || ''
@@ -203,7 +212,7 @@ const Main: FC<IMainProps> = () => {
 
   // sometime introduction is not applied to state
   const generateNewChatListWithOpenStatement = (introduction?: string, inputs?: Record<string, any> | null) => {
-    let calculatedIntroduction = introduction || conversationIntroduction || ''
+    let calculatedIntroduction = introduction || conversationIntroduction || '你好，我是麦芽幼教 AI，很高兴帮助你完成教研记录。'
     const calculatedPromptVariables = inputs || currInputs || null
     if (calculatedIntroduction && calculatedPromptVariables) { calculatedIntroduction = replaceVarWithValues(calculatedIntroduction, promptConfig?.prompt_variables || [], calculatedPromptVariables) }
 
@@ -672,17 +681,19 @@ const Main: FC<IMainProps> = () => {
         )}
         {/* main */}
         <div className='flex-grow flex flex-col h-[calc(100vh_-_4.5rem)] overflow-y-auto'>
-          <ConfigSence
-            conversationName={conversationName}
-            hasSetInputs={hasSetInputs}
-            isPublicVersion={isShowPrompt}
-            siteInfo={APP_INFO}
-            promptConfig={promptConfig}
-            onStartChat={handleStartChat}
-            canEditInputs={canEditInputs}
-            savedInputs={currInputs as Record<string, any>}
-            onInputsChange={setCurrInputs}
-          ></ConfigSence>
+          {hasRequiredInputs && (
+            <ConfigSence
+              conversationName={conversationName}
+              hasSetInputs={hasSetInputs}
+              isPublicVersion={isShowPrompt}
+              siteInfo={APP_INFO}
+              promptConfig={promptConfig}
+              onStartChat={handleStartChat}
+              canEditInputs={canEditInputs}
+              savedInputs={currInputs as Record<string, any>}
+              onInputsChange={setCurrInputs}
+            ></ConfigSence>
+          )}
 
           {
             hasSetInputs && (
