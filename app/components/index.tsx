@@ -680,7 +680,7 @@ const Main: FC<IMainProps> = () => {
           </div>
         )}
         {/* main */}
-        <div className='flex-grow flex flex-col h-[calc(100vh_-_4.5rem)] overflow-y-auto'>
+        <div className='min-w-0 flex-grow flex flex-col h-[calc(100vh_-_4.5rem)] overflow-y-auto'>
           {hasRequiredInputs && (
             <ConfigSence
               conversationName={conversationName}
@@ -697,7 +697,7 @@ const Main: FC<IMainProps> = () => {
 
           {
             hasSetInputs && (
-              <div className='relative grow pc:w-[860px] max-w-full mobile:w-full pb-[190px] mx-auto mb-3.5' ref={chatListDomRef}>
+              <div className='relative grow w-full max-w-[1040px] mobile:w-full pb-[190px] mx-auto mb-3.5' ref={chatListDomRef}>
                 <Chat
                   chatList={chatList}
                   onSend={handleSend}

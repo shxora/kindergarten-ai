@@ -176,7 +176,7 @@ const Chat: FC<IChatProps> = ({
       </div>
       {
         !isHideSendInput && (
-          <div className='fixed z-10 bottom-5 left-1/2 transform -translate-x-1/2 pc:ml-[122px] tablet:ml-[96px] mobile:ml-0 pc:w-[860px] tablet:w-[794px] max-w-full mobile:w-full px-3.5'>
+          <div className='fixed z-10 bottom-5 left-1/2 transform -translate-x-1/2 pc:ml-[122px] tablet:ml-[96px] mobile:ml-0 w-full max-w-[1040px] mobile:w-full px-1'>
             <div className='maiya-composer p-2 max-h-[190px] overflow-y-auto'>
               {
                 visionConfig?.enabled && (
