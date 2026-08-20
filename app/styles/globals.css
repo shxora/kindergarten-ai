@@ -129,10 +129,9 @@ body {
 .maiya-media-button { gap: 5px; width: fit-content; font-size: 13px; font-weight: 700; border: 1px solid; transition: transform .15s ease, opacity .15s ease; }
 .maiya-media-button:hover { transform: translateY(-1px); opacity: .86; }
 .maiya-photo-button { color: #477dbe; background: #eaf4ff; border-color: #bfdbf6; }
-.maiya-audio-button { color: #b76467; background: #fff0ed; border-color: #facdc6; }
 .maiya-file-button { color: #a17528; background: #fff7da; border-color: #f6dfa0; }
-.maiya-file-area { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.maiya-uploaded-files { width: 100%; }
+.maiya-file-area { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; width: 100%; }
+.maiya-uploaded-files { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; width: 100%; margin-top: 8px; }
 .maiya-send-button { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 0; border-radius: 50%; color: #fff; background: linear-gradient(135deg, #f4b75e, #e68b3e); box-shadow: 0 4px 10px rgba(220, 137, 57, .28); cursor: pointer; }
 .maiya-send-button:hover { filter: brightness(1.04); transform: translateY(-1px); }
 
@@ -140,6 +139,8 @@ body {
   .maiya-header { height: 64px; padding: 0 16px; }
   .maiya-content-shell { gap: 0; padding: 0; }
   .maiya-sidebar { height: 100vh; border-radius: 0 22px 22px 0; }
+  .maiya-composer { border-radius: 18px; }
+  .maiya-uploaded-files { grid-template-columns: 1fr; }
 }
 
 @media (min-width: 641px) and (max-width: 1100px) {

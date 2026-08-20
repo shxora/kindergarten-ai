@@ -92,15 +92,9 @@ const FileUploaderInAttachment = ({
     return (
       <div className='maiya-file-area'>
         {canUploadLocal && (
-          <div className='maiya-media-button maiya-audio-button relative flex items-center justify-center h-9 px-3 rounded-full cursor-pointer'>
-            <span className='text-base leading-none'>🎙️</span><span>语音</span>
-            <FileInput fileConfig={fileConfig} acceptOverride='.mp3,.m4a,.wav,.aac,.ogg,.flac' />
-          </div>
-        )}
-        {canUploadLocal && (
           <div className='maiya-media-button maiya-file-button relative flex items-center justify-center h-9 px-3 rounded-full cursor-pointer'>
-            <span className='text-base leading-none'>📄</span><span>教研文件</span>
-            <FileInput fileConfig={fileConfig} acceptOverride='.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.txt,.md' />
+            <span className='text-base leading-none'>📎</span><span>上传文件</span>
+            <FileInput fileConfig={fileConfig} />
           </div>
         )}
         <div className='maiya-uploaded-files'>
