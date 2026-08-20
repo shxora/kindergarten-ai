@@ -50,11 +50,11 @@ const FileInAttachmentItem = ({
         'maiya-upload-card relative flex h-16 items-center rounded-lg border-[0.5px] border-components-panel-border bg-components-panel-on-panel-item-bg pr-3 shadow-xs',
         progress === -1 && 'border-state-destructive-border bg-state-destructive-hover',
       )}>
-        <div className='flex h-12 w-12 items-center justify-center'>
+        <div className='flex h-16 w-16 shrink-0 items-center justify-center'>
           {
             isImageFile && (
               <FileImageRender
-                className='h-8 w-8'
+                className='h-10 w-10'
                 imageUrl={base64Url || url || ''}
               />
             )
@@ -70,12 +70,12 @@ const FileInAttachmentItem = ({
         </div>
         <div className='mr-1 w-0 grow'>
           <div
-            className='system-xs-medium mb-0.5 flex items-center truncate text-text-secondary'
+            className='mb-1 flex items-center truncate text-[12px] leading-4 text-text-secondary'
             title={file.name}
           >
             <div className='truncate'>{name}</div>
           </div>
-          <div className='system-2xs-medium-uppercase flex items-center text-text-tertiary'>
+          <div className='flex items-center text-[11px] leading-4 text-text-tertiary'>
             {
               ext && (
                 <span>{ext.toLowerCase()}</span>

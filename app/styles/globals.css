@@ -120,7 +120,7 @@ body {
 .maiya-profile { background: linear-gradient(135deg, #ffcb89, #ed9756); color: #fff; font-size: 14px; font-weight: 700; box-shadow: 0 4px 10px rgba(227, 143, 70, .25); }
 .maiya-header-icon { background: #fff6e6; cursor: pointer; }
 .maiya-content-shell { display: flex; flex: 1; min-height: 0; gap: 12px; width: 100%; padding: 12px; margin: 0 auto; overflow: hidden; }
-.maiya-sidebar { height: auto; min-height: 0; align-self: stretch; background: rgba(255, 255, 255, .78); border: 1px solid #eadfce; border-radius: 22px; overflow-y: auto; overflow-x: hidden; box-shadow: 0 8px 24px rgba(110, 76, 35, .06); }
+.maiya-sidebar { height: auto; min-height: 0; align-self: stretch; margin-bottom: 8px; background: rgba(255, 255, 255, .78); border: 1px solid #eadfce; border-radius: 22px; overflow-y: auto; overflow-x: hidden; box-shadow: 0 8px 24px rgba(110, 76, 35, .06); }
 .maiya-new-chat { color: #e58b38 !important; background: #fff3d5 !important; border: 1px solid #f7d793 !important; border-radius: 14px !important; font-weight: 700 !important; }
 .maiya-conversation-active { color: #d87e2d; background: #fff3d8; }
 .maiya-answer-card { background: #fffdf9; border: 1px solid #f4cf85; box-shadow: 0 5px 14px rgba(110, 76, 35, .06); }
@@ -133,7 +133,7 @@ body {
 .maiya-file-button:hover { color: #e58b38; transform: none; }
 .maiya-file-area { position: static; display: block; width: 100%; }
 .maiya-uploaded-files { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 4; display: flex; align-items: stretch; gap: 8px; flex-wrap: wrap; width: 100%; max-height: 150px; overflow-y: auto; padding: 2px; }
-.maiya-upload-card { flex: 0 0 220px; width: 220px; max-width: 100%; min-height: 64px; padding-right: 24px !important; background: rgba(255, 255, 255, .98) !important; border-color: #eadfce !important; }
+.maiya-upload-card { flex: 0 0 240px; width: 240px; max-width: 100%; min-height: 76px; padding: 8px 24px 8px 10px !important; background: rgba(255, 255, 255, .98) !important; border-color: #eadfce !important; }
 .maiya-upload-card > .flex.shrink-0 { position: absolute; top: 3px; right: 3px; z-index: 1; }
 .maiya-upload-card > .flex.shrink-0 > * { width: 18px; height: 18px; min-height: 18px; padding: 1px; }
 .maiya-send-button { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: 0; border-radius: 50%; color: #fff; background: linear-gradient(135deg, #f4b75e, #e68b3e); box-shadow: 0 4px 10px rgba(220, 137, 57, .28); cursor: pointer; }
@@ -142,7 +142,7 @@ body {
 @media (max-width: 640px) {
   .maiya-header { height: 64px; padding: 0 16px; }
   .maiya-content-shell { gap: 0; padding: 0; }
-  .maiya-sidebar { height: 100vh; border-radius: 0 22px 22px 0; }
+  .maiya-sidebar { height: 100vh; margin-bottom: 0; border-radius: 0 22px 22px 0; }
   .maiya-composer { border-radius: 18px; }
   .maiya-composer textarea { min-height: 58px !important; max-height: 140px !important; }
   .maiya-uploaded-files { max-height: 132px; }
