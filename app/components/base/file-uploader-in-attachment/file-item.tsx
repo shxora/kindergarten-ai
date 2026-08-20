@@ -47,7 +47,7 @@ const FileInAttachmentItem = ({
   return (
     <>
       <div className={cn(
-        'flex h-12 items-center rounded-lg border-[0.5px] border-components-panel-border bg-components-panel-on-panel-item-bg pr-3 shadow-xs',
+        'maiya-upload-card relative flex h-16 items-center rounded-lg border-[0.5px] border-components-panel-border bg-components-panel-on-panel-item-bg pr-3 shadow-xs',
         progress === -1 && 'border-state-destructive-border bg-state-destructive-hover',
       )}>
         <div className='flex h-12 w-12 items-center justify-center'>

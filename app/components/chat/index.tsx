@@ -177,7 +177,7 @@ const Chat: FC<IChatProps> = ({
       {
         !isHideSendInput && (
           <div className='fixed z-10 bottom-5 left-1/2 transform -translate-x-1/2 pc:ml-[122px] tablet:ml-[96px] mobile:ml-0 w-full max-w-[1040px] mobile:w-full px-1'>
-            <div className='maiya-composer p-2 max-h-[190px] overflow-y-auto'>
+            <div className='maiya-composer p-2 max-h-[230px]'>
               {
                 visionConfig?.enabled && (
                   <>
@@ -214,7 +214,7 @@ const Chat: FC<IChatProps> = ({
               }
               <Textarea
                 className={`
-                  block w-full px-3 pr-[54px] py-[9px] leading-5 max-h-none text-base text-[#5d4935] bg-transparent outline-none appearance-none resize-none
+                  block w-full min-h-[72px] px-3 pr-[54px] py-[9px] leading-5 max-h-[180px] text-base text-[#5d4935] bg-transparent outline-none appearance-none resize-none overflow-y-auto
                 `}
                 value={query}
                 onChange={handleContentChange}
