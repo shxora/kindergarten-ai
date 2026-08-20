@@ -25,6 +25,13 @@ export const getLocaleOnServer = async (): Promise<Locale> => {
   }
 
   // match locale
-  const matchedLocale = match(languages, locales, i18n.defaultLocale) as Locale
-  return matchedLocale
+  try {
+    const matchedLocale = match(languages, locales, i18n.defaultLocale) as Locale
+    return matchedLocale
+  }
+  catch {
+    // Some browsers or older deployments may leave an invalid locale cookie.
+    // Fall back safely instead of returning a server-side 500.
+    return 'zh-Hans'
+  }
 }
