@@ -12,8 +12,8 @@ const LocaleLayout = async ({
   return (
     <html lang={locale ?? 'zh-Hans'} className="h-full">
       <body className="h-full">
-        <div className="overflow-x-auto">
-          <div className="w-screen h-screen min-w-[300px]">
+        <div className="w-full h-full overflow-hidden">
+          <div className="w-full h-full min-w-0">
             {children}
           </div>
         </div>
