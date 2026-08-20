@@ -40,7 +40,7 @@ const Header: FC<IHeaderProps> = ({
           <div className='maiya-header-icon' onClick={() => onCreateNewChat?.()} >
             <PencilSquareIcon className="h-4 w-4 text-gray-500" />
           </div>)
-        : <div className='maiya-profile' title='教师账户'>林</div>}
+        : <div className='w-8' aria-hidden="true"></div>}
     </header>
   )
 }

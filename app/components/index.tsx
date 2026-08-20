@@ -697,7 +697,7 @@ const Main: FC<IMainProps> = () => {
 
           {
             hasSetInputs && (
-              <div className='relative grow w-full max-w-[1040px] mobile:w-full pb-[190px] mx-auto mb-3.5' ref={chatListDomRef}>
+              <div className='relative grow w-full max-w-[1040px] mobile:w-full pt-10 mobile:pt-5 pb-[190px] mx-auto mb-3.5' ref={chatListDomRef}>
                 <Chat
                   chatList={chatList}
                   onSend={handleSend}
