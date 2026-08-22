@@ -1,6 +1,7 @@
 import type { IOnCompleted, IOnData, IOnError, IOnFile, IOnMessageEnd, IOnMessageReplace, IOnNodeFinished, IOnNodeStarted, IOnThought, IOnWorkflowFinished, IOnWorkflowStarted } from './base'
 import { del, get, post, ssePost } from './base'
 import type { Feedbacktype } from '@/types/app'
+import { API_URL } from '@/config'
 
 export const sendChatMessage = async (
   body: Record<string, any>,
@@ -45,7 +46,12 @@ export const fetchConversations = async () => {
 }
 
 export const clearConversations = async () => {
-  return del('conversations')
+  if (!API_URL) { return del('conversations') }
+  const conversations: any = await fetchConversations()
+  if (conversations?.error) { return conversations }
+  const items = Array.isArray(conversations?.data) ? conversations.data : []
+  await Promise.all(items.filter(item => item?.id).map(item => del(`conversations/${item.id}`)))
+  return { result: 'success' }
 }
 
 export const fetchChatList = async (conversationId: string) => {
@@ -68,6 +74,6 @@ export const generationConversationName = async (id: string) => {
 // 通知 Dify 终止指定 task，Dify 会保留已生成的内容并通过原 SSE 推一个 message_end 收尾。
 // 失败也不抛错 —— 前端始终会本地 abort，只是放弃让 Dify 端优雅收尾。
 export const stopChatMessage = async (taskId: string) => {
-  if (!taskId) return Promise.resolve({ result: 'noop' })
+  if (!taskId) { return Promise.resolve({ result: 'noop' }) }
   return post(`chat-messages/${taskId}/stop`, { body: {} }).catch(() => ({ result: 'fail' }))
 }

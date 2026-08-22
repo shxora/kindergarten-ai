@@ -1,4 +1,4 @@
-import { API_PREFIX } from '@/config'
+import { API_KEY, API_PREFIX, API_URL, APP_ID } from '@/config'
 import Toast from '@/app/components/base/toast'
 import type { AnnotationReply, MessageEnd, MessageReplace, ThoughtItem } from '@/app/components/chat/type'
 import type { VisionFile } from '@/types/app'
@@ -20,6 +20,36 @@ const baseOptions = {
     'Content-Type': ContentType.json,
   }),
   redirect: 'follow',
+}
+
+// Vercel's serverless region cannot reach the NAS-hosted Dify service, while
+// the browser can. Use the Dify API directly in the browser when an API URL is
+// configured; keep the local proxy as the fallback for local/self-hosted runs.
+const directApi = Boolean(API_URL)
+const directApiPrefix = API_URL.replace(/\/$/, '')
+const directUserKey = `maiya-dify-user:${APP_ID || 'default'}`
+
+const getDirectUser = () => {
+  if (typeof window === 'undefined') { return `web_${APP_ID || 'default'}` }
+  const existing = window.localStorage.getItem(directUserKey)
+  if (existing) { return existing }
+  const generated = `web_${crypto.randomUUID()}`
+  window.localStorage.setItem(directUserKey, generated)
+  return generated
+}
+
+const getRequestUrl = (url: string) => {
+  const path = url.startsWith('/') ? url : `/${url}`
+  return directApi ? `${directApiPrefix}${path}` : `${API_PREFIX}${path}`
+}
+
+const prepareRequest = (options: any, body?: Record<string, any>) => {
+  if (!directApi) { return body }
+  options.credentials = 'omit'
+  options.headers = new Headers(options.headers || {})
+  options.headers.set('Authorization', `Bearer ${API_KEY}`)
+  if (!body) { return body }
+  return { ...body, user: body.user || getDirectUser() }
 }
 
 export interface WorkflowStartedResponse {
@@ -259,7 +289,7 @@ const handleStream = (
       // 用户点击暂停时，reader.read() 会以 AbortError 拒绝。
       // 这不是业务失败，不应触发 onError 也不应在控制台留下 unhandled rejection。
       const msg = String(e?.message || e || '')
-      if (e?.name === 'AbortError' || /aborted|abort/i.test(msg)) return
+      if (e?.name === 'AbortError' || /aborted|abort/i.test(msg)) { return }
       // 其它读取异常兜底
       onCompleted?.(true)
     })
@@ -270,22 +300,27 @@ const handleStream = (
 const baseFetch = (url: string, fetchOptions: any, { needAllResponseContent }: IOtherOptions) => {
   const options = Object.assign({}, baseOptions, fetchOptions)
 
-  const urlPrefix = API_PREFIX
+  let urlWithPrefix = getRequestUrl(url)
 
-  let urlWithPrefix = `${urlPrefix}${url.startsWith('/') ? url : `/${url}`}`
-
-  const { method, params, body } = options
+  const { method, params } = options
+  let { body } = options
+  body = prepareRequest(options, body)
   // handle query
   if (method === 'GET' && params) {
+    const requestParams = directApi ? { ...params, user: params.user || getDirectUser() } : params
     const paramsArray: string[] = []
-    Object.keys(params).forEach(key =>
-      paramsArray.push(`${key}=${encodeURIComponent(params[key])}`),
+    Object.keys(requestParams).forEach(key =>
+      paramsArray.push(`${key}=${encodeURIComponent(requestParams[key])}`),
     )
     if (urlWithPrefix.search(/\?/) === -1) { urlWithPrefix += `?${paramsArray.join('&')}` }
 
     else { urlWithPrefix += `&${paramsArray.join('&')}` }
 
     delete options.params
+  }
+
+  if (directApi && method === 'DELETE' && !body) {
+    urlWithPrefix += `${urlWithPrefix.includes('?') ? '&' : '?'}user=${encodeURIComponent(getDirectUser())}`
   }
 
   if (body) { options.body = JSON.stringify(body) }
@@ -347,8 +382,7 @@ const baseFetch = (url: string, fetchOptions: any, { needAllResponseContent }: I
 }
 
 export const upload = (fetchOptions: any): Promise<any> => {
-  const urlPrefix = API_PREFIX
-  const urlWithPrefix = `${urlPrefix}/file-upload`
+  const urlWithPrefix = directApi ? `${directApiPrefix}/files/upload` : `${API_PREFIX}/file-upload`
   const defaultOptions = {
     method: 'POST',
     url: `${urlWithPrefix}`,
@@ -363,12 +397,13 @@ export const upload = (fetchOptions: any): Promise<any> => {
     xhr.open(options.method, options.url)
     for (const key in options.headers) { xhr.setRequestHeader(key, options.headers[key]) }
 
-    xhr.withCredentials = true
+    if (directApi) { xhr.setRequestHeader('Authorization', `Bearer ${API_KEY}`) }
+    xhr.withCredentials = !directApi
     xhr.responseType = 'text'
     xhr.onreadystatechange = function () {
       if (xhr.readyState === 4) {
         const responseText = String(xhr.response || '').trim()
-        let response: any = undefined
+        let response: any
         try { response = responseText ? JSON.parse(responseText) : undefined } catch { /* plain text response */ }
         if (xhr.status >= 200 && xhr.status < 300) {
           const id = response?.id || responseText
@@ -386,6 +421,7 @@ export const upload = (fetchOptions: any): Promise<any> => {
       }
     }
     xhr.upload.onprogress = options.onprogress
+    if (directApi && options.data instanceof FormData) { options.data.append('user', getDirectUser()) }
     xhr.send(options.data)
   })
 }
@@ -412,10 +448,9 @@ export const ssePost = (
     method: 'POST',
   }, fetchOptions)
 
-  const urlPrefix = API_PREFIX
-  const urlWithPrefix = `${urlPrefix}${url.startsWith('/') ? url : `/${url}`}`
+  const urlWithPrefix = getRequestUrl(url)
 
-  const { body } = options
+  const body = prepareRequest(options, options.body)
   if (body) { options.body = JSON.stringify(body) }
 
   const abortController = new AbortController()
@@ -449,7 +484,7 @@ export const ssePost = (
     .catch((e) => {
       // 用户点击暂停后，浏览器会把正在读取的响应流标记为 aborted。
       // 这不是业务失败，不应弹出 BodyStreamBuffer 错误。
-      if (e?.name === 'AbortError' || options.signal?.aborted || /body.*stream.*aborted|aborted|abort/i.test(String(e?.message || e))) return
+      if (e?.name === 'AbortError' || options.signal?.aborted || /body.*stream.*aborted|aborted|abort/i.test(String(e?.message || e))) { return }
       Toast.notify({ type: 'error', message: e })
       onError?.(e)
     })
