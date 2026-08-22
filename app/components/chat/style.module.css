@@ -3,30 +3,17 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff4d7;
+  background: #fff8e7;
   border: 2px solid #f5cf72;
   border-radius: 50%;
+  line-height: 1;
 }
 
 .answerIcon::after {
-  content: '芽';
-  color: #e58b38;
-  font-weight: 800;
-  font-size: 17px;
-}
-
-.typeingIcon {
-  position: absolute;
-  top: 0px;
-  left: 0px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 16px;
-  height: 16px;
-  background: #FFFFFF;
-  box-shadow: 0px 1px 2px rgba(16, 24, 40, 0.05);
-  border-radius: 16px;
+  content: '🌻';
+  font-size: 24px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(229, 139, 56, .15));
 }
 
 
@@ -34,16 +21,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #a6e6cd, #72c9ad);
+  background: url(./icons/teacher-cartoon.png) center/cover no-repeat;
   border: 2px solid #eafff6;
   border-radius: 50%;
+  overflow: hidden;
 }
 
 .questionIcon::after {
-  content: '师';
-  color: #fff;
-  font-weight: 800;
-  font-size: 15px;
+  content: '';
 }
 
 .answer::before,
@@ -56,13 +41,7 @@
   background: url(./icons/answer.svg) no-repeat;
 }
 
-.answerWrap .itemOperation {
-  display: none;
-}
-
-.answerWrap:hover .itemOperation {
-  display: flex;
-}
+/* 按钮 hover/移动端显示规则已移到 globals.css（CSS module 不允许纯属性选择器） */
 
 .question::before {
   right: 0;

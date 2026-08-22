@@ -9,7 +9,7 @@ import Toast from '@/app/components/base/toast'
 import Sidebar from '@/app/components/sidebar'
 import ConfigSence from '@/app/components/config-scence'
 import Header from '@/app/components/header'
-import { fetchAppParams, fetchChatList, fetchConversations, generationConversationName, sendChatMessage, updateFeedback } from '@/service'
+import { clearConversations, fetchAppParams, fetchChatList, fetchConversations, generationConversationName, sendChatMessage, stopChatMessage, updateFeedback } from '@/service'
 import type { ChatItem, ConversationItem, Feedbacktype, PromptConfig, VisionFile, VisionSettings } from '@/types/app'
 import type { FileUpload } from '@/app/components/base/file-uploader-in-attachment/types'
 import { Resolution, TransferMethod, WorkflowRunningStatus } from '@/types/app'
@@ -25,6 +25,143 @@ import { addFileInfos, sortAgentSorts } from '@/utils/tools'
 
 export interface IMainProps {
   params: any
+}
+
+const createThinkStreamFilter = () => {
+  let insideThink = false
+  let pending = ''
+  const openTag = '<think>'
+  const closeTag = '</think>'
+  const isPrefix = (value: string, tag: string) => tag.startsWith(value.toLowerCase())
+
+  return {
+    push(chunk: string) {
+      let text = pending + chunk
+      pending = ''
+      let visible = ''
+
+      while (text) {
+        const lower = text.toLowerCase()
+        if (insideThink) {
+          const closeIndex = lower.indexOf(closeTag)
+          if (closeIndex < 0) {
+            const lastOpen = text.lastIndexOf('<')
+            const suffix = lastOpen >= 0 ? text.slice(lastOpen) : ''
+            if (suffix && isPrefix(suffix, closeTag)) pending = suffix
+            return visible
+          }
+          text = text.slice(closeIndex + closeTag.length)
+          insideThink = false
+          continue
+        }
+
+        const openIndex = lower.indexOf(openTag)
+        if (openIndex >= 0) {
+          visible += text.slice(0, openIndex)
+          text = text.slice(openIndex + openTag.length)
+          insideThink = true
+          continue
+        }
+
+        const lastOpen = text.lastIndexOf('<')
+        const suffix = lastOpen >= 0 ? text.slice(lastOpen) : ''
+        if (suffix && isPrefix(suffix, openTag)) {
+          visible += text.slice(0, lastOpen)
+          pending = suffix
+          return visible
+        }
+        visible += text
+        return visible
+      }
+      return visible
+    },
+  }
+}
+
+const stripThinkMarkup = (text: string) => text
+  .replace(/<think>[\s\S]*?<\/think>/gi, '')
+  .replace(/<think>[\s\S]*$/gi, '')
+  .replace(/<\/think>/gi, '')
+
+const isUploadedFileValue = (value: any) => Boolean(
+  value
+  && typeof value === 'object'
+  && (value.upload_file_id || value.file_id)
+  && (value.transfer_method || value.type === 'image' || value.type === 'document'),
+)
+
+const flattenUploadedFiles = (value: any): any[] => {
+  if (isUploadedFileValue(value)) return [value]
+  if (Array.isArray(value)) return value.flatMap(flattenUploadedFiles)
+  if (value && typeof value === 'object') return Object.values(value).flatMap(flattenUploadedFiles)
+  return []
+}
+
+const getHistoryUserFiles = (message: any): any[] => {
+  const messageFiles = Array.isArray(message?.message_files)
+    ? message.message_files.filter((file: any) => file.belongs_to === 'user' || !file.belongs_to)
+    : []
+  if (messageFiles.length > 0) return messageFiles
+
+  // Start-node file variables are often persisted by Dify under inputs rather
+  // than message_files. Recover them so attachments remain visible after refresh.
+  return flattenUploadedFiles(message?.inputs).map((file: any) => ({
+    ...file,
+    upload_file_id: file.upload_file_id || file.file_id,
+    belongs_to: 'user',
+  }))
+}
+
+type CachedConversationAttachment = {
+  query: string
+  files: any[]
+  createdAt: number
+}
+
+const attachmentCacheKey = `maiya-conversation-attachments:${APP_ID}`
+
+const readAttachmentCache = (): Record<string, CachedConversationAttachment[]> => {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = window.localStorage.getItem(attachmentCacheKey)
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  }
+  catch {
+    return {}
+  }
+}
+
+const cacheConversationAttachments = (conversationId: string, query: string, files: VisionFile[]) => {
+  if (typeof window === 'undefined' || !conversationId || conversationId === '-1' || files.length === 0) return
+  try {
+    const cache = readAttachmentCache()
+    const cachedFiles = files.map((file: any) => {
+      // 文件正文和大尺寸 base64 预览不写入 localStorage，只保留可恢复显示的元数据。
+      const { base64Url: _base64Url, ...metadata } = file
+      return metadata
+    })
+    const entries = cache[conversationId] || []
+    cache[conversationId] = [...entries, { query, files: cachedFiles, createdAt: Date.now() }].slice(-100)
+    const conversationIds = Object.keys(cache)
+    conversationIds.slice(0, Math.max(0, conversationIds.length - 50)).forEach(id => delete cache[id])
+    window.localStorage.setItem(attachmentCacheKey, JSON.stringify(cache))
+  }
+  catch {
+    // 缓存失败不影响消息发送和 Dify 历史记录。
+  }
+}
+
+const getCachedConversationAttachments = (
+  conversationId: string,
+  query: string,
+  usedIndexes: Set<number>,
+): any[] => {
+  const entries = readAttachmentCache()[conversationId] || []
+  const index = entries.findIndex((entry, entryIndex) => !usedIndexes.has(entryIndex) && entry.query === query)
+  if (index < 0) return []
+  usedIndexes.add(index)
+  return entries[index].files || []
 }
 
 const Main: FC<IMainProps> = () => {
@@ -136,15 +273,33 @@ const Main: FC<IMainProps> = () => {
     // update chat list of current conversation
     if (!isNewConversation && !conversationIdChangeBecauseOfNew && !isResponding) {
       fetchChatList(currConversationId).then((res: any) => {
-        const { data } = res
+        const { data, error } = res
+        if (error) {
+          Toast.notify({ type: 'error', message: error })
+          setChatList([
+            ...generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs),
+            {
+              id: `history-error-${currConversationId}`,
+              content: `历史消息加载失败：${error}`,
+              isAnswer: true,
+            },
+          ])
+          return
+        }
         const newChatList: ChatItem[] = generateNewChatListWithOpenStatement(notSyncToStateIntroduction, notSyncToStateInputs)
 
-        data.forEach((item: any) => {
+        const messages = Array.isArray(data) ? data : []
+        const usedCachedAttachmentIndexes = new Set<number>()
+        messages.forEach((item: any) => {
+          const historyFiles = getHistoryUserFiles(item)
+          const messageFiles = historyFiles.length > 0
+            ? historyFiles
+            : getCachedConversationAttachments(currConversationId, item.query || '', usedCachedAttachmentIndexes)
           newChatList.push({
             id: `question-${item.id}`,
             content: item.query,
             isAnswer: false,
-            message_files: item.message_files?.filter((file: any) => file.belongs_to === 'user') || [],
+            message_files: messageFiles,
 
           })
           newChatList.push({
@@ -160,7 +315,7 @@ const Main: FC<IMainProps> = () => {
       })
     }
 
-    if (isNewConversation && isChatStarted) { setChatList(generateNewChatListWithOpenStatement()) }
+    if (isNewConversation) { setChatList(generateNewChatListWithOpenStatement()) }
   }
   useEffect(handleConversationSwitch, [currConversationId, inited])
 
@@ -182,9 +337,14 @@ const Main: FC<IMainProps> = () => {
   */
   const [chatList, setChatList, getChatList] = useGetState<ChatItem[]>([])
   const chatListDomRef = useRef<HTMLDivElement>(null)
+  const skipNextScrollRef = useRef(false)
   useEffect(() => {
     // scroll to bottom with page-level scrolling
     if (chatListDomRef.current) {
+      if (skipNextScrollRef.current) {
+        skipNextScrollRef.current = false
+        return
+      }
       setTimeout(() => {
         chatListDomRef.current?.scrollIntoView({
           behavior: 'auto',
@@ -269,18 +429,28 @@ const Main: FC<IMainProps> = () => {
           prompt_template: promptTemplate,
           prompt_variables,
         } as PromptConfig)
+        // This workflow uses two explicit Start-node file-list variables rather
+        // than Dify's global chat attachment switch. Build the two upload
+        // controls from those variables so the UI still works when the global
+        // file_upload setting is disabled.
+        const isFileVariable = (item: any) => item?.type === 'file' || item?.type === 'file-list'
+        const imageInput = prompt_variables.find((item: any) => isFileVariable(item) && item.allowed_file_types?.includes('image'))
+        const documentInput = prompt_variables.find((item: any) => isFileVariable(item) && item.allowed_file_types?.includes('document'))
+        const localUploadOnly = [TransferMethod.local_file]
         const outerFileUploadEnabled = !!file_upload?.enabled
         setVisionConfig({
           ...file_upload?.image,
-          enabled: !!(outerFileUploadEnabled && file_upload?.image?.enabled),
-          image_file_size_limit: system_parameters?.system_parameters || 0,
+          enabled: !!imageInput || !!(outerFileUploadEnabled && file_upload?.image?.enabled),
+          number_limits: imageInput?.max_length || file_upload?.image?.number_limits || 1,
+          transfer_methods: imageInput?.allowed_file_upload_methods || file_upload?.image?.transfer_methods || localUploadOnly,
+          image_file_size_limit: system_parameters?.image_file_size_limit || system_parameters?.system_parameters || 10,
         })
         setFileConfig({
-          enabled: outerFileUploadEnabled,
-          allowed_file_types: file_upload?.allowed_file_types,
-          allowed_file_extensions: file_upload?.allowed_file_extensions,
-          allowed_file_upload_methods: file_upload?.allowed_file_upload_methods,
-          number_limits: file_upload?.number_limits,
+          enabled: !!documentInput || outerFileUploadEnabled,
+          allowed_file_types: documentInput?.allowed_file_types || file_upload?.allowed_file_types || ['document'],
+          allowed_file_extensions: documentInput?.allowed_file_extensions || file_upload?.allowed_file_extensions || [],
+          allowed_file_upload_methods: documentInput?.allowed_file_upload_methods || file_upload?.allowed_file_upload_methods || localUploadOnly,
+          number_limits: documentInput?.max_length || file_upload?.number_limits || 5,
           fileUploadConfig: file_upload?.fileUploadConfig,
         })
         setConversationList(conversations as ConversationItem[])
@@ -303,7 +473,42 @@ const Main: FC<IMainProps> = () => {
 
   const [isResponding, { setTrue: setRespondingTrue, setFalse: setRespondingFalse }] = useBoolean(false)
   const [abortController, setAbortController] = useState<AbortController | null>(null)
+  const workflowTypingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const handleStop = () => {
+    // 1) 通知 Dify 停止任务（fire-and-forget）。
+    //    失败也无所谓——Dify 端会保留已生成内容，我们还会本地 abort。
+    if (messageTaskId) { stopChatMessage(messageTaskId) }
+    // 2) 本地中止 fetch，释放 UI
+    if (workflowTypingTimerRef.current) {
+      clearInterval(workflowTypingTimerRef.current)
+      workflowTypingTimerRef.current = null
+    }
+    abortController?.abort()
+    setAbortController(null)
+    setRespondingFalse()
+    setChatList(produce(getChatList(), (draft) => {
+      const last = draft[draft.length - 1]
+      if (last?.isAnswer && !last.content && !last.agent_thoughts?.length) draft.pop()
+    }))
+  }
   const { notify } = Toast
+
+  const formatWorkflowOutput = (outputs: any): string => {
+    if (outputs === undefined || outputs === null) return ''
+    if (typeof outputs === 'string') return outputs
+    if (typeof outputs !== 'object') return String(outputs)
+    // 常见 Dify 工作流输出字段优先作为最终回答展示。
+    for (const key of ['answer', 'text', 'result', 'output', 'content', 'response']) {
+      if (outputs[key] !== undefined && outputs[key] !== null) {
+        const value = outputs[key]
+        return typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+      }
+    }
+    const values = Object.values(outputs).filter(value => value !== undefined && value !== null)
+    if (values.length === 1) return typeof values[0] === 'string' ? values[0] : JSON.stringify(values[0], null, 2)
+    return JSON.stringify(outputs, null, 2)
+  }
+
   const logError = (message: string) => {
     notify({ type: 'error', message })
   }
@@ -370,6 +575,17 @@ const Main: FC<IMainProps> = () => {
       notify({ type: 'info', message: t('app.errorMessage.waitForResponse') })
       return
     }
+    if (workflowTypingTimerRef.current) {
+      clearInterval(workflowTypingTimerRef.current)
+      workflowTypingTimerRef.current = null
+    }
+
+    // 记录发送前已有的真实会话，避免刷新列表时误把旧会话当成本次新会话。
+    const previousConversationIds = new Set(
+      conversationList
+        .filter(item => item.id !== '-1')
+        .map(item => item.id),
+    )
     const toServerInputs: Record<string, any> = {}
     if (currInputs) {
       Object.keys(currInputs).forEach((key) => {
@@ -388,16 +604,33 @@ const Main: FC<IMainProps> = () => {
       conversation_id: isNewConversation ? null : currConversationId,
     }
 
-    if (files && files?.length > 0) {
-      data.files = files.map((item) => {
-        if (item.transfer_method === TransferMethod.local_file) {
-          return {
-            ...item,
-            url: '',
-          }
-        }
-        return item
-      })
+    const isFileVariable = (item: any) => item?.type === 'file' || item?.type === 'file-list'
+    const imageInput = promptConfig?.prompt_variables?.find((item: any) => isFileVariable(item) && item.allowed_file_types?.includes('image'))
+    const documentInput = promptConfig?.prompt_variables?.find((item: any) => isFileVariable(item) && item.allowed_file_types?.includes('document'))
+    const imageFiles = (files || []).filter(file => file.type === 'image')
+    const documentFiles = (files || []).filter(file => file.type !== 'image')
+    const toServerFile = (item: VisionFile) => {
+      const { filename: _filename, base64Url: _base64Url, ...serverFile } = item
+      return item.transfer_method === TransferMethod.local_file
+        ? { ...serverFile, url: '' }
+        : serverFile
+    }
+    const assignFileInput = (variable: any, items: VisionFile[]) => {
+      const serverFiles = items.map(toServerFile)
+      return variable?.type === 'file' ? (serverFiles[0] || null) : serverFiles
+    }
+
+    if (imageInput || documentInput) {
+      // The workflow has separate Start-node variables. Never send a mixed
+      // top-level files array: that makes Dify pass document objects directly
+      // into the model and can trigger DocumentPromptMessageContent errors.
+      if (imageInput) { toServerInputs[imageInput.key] = assignFileInput(imageInput, imageFiles) }
+      if (documentInput) { toServerInputs[documentInput.key] = assignFileInput(documentInput, documentFiles) }
+    }
+    else if (files && files.length > 0) {
+      // Backward-compatible fallback for apps that only use Dify's global
+      // attachment input instead of explicit Start-node variables.
+      data.files = files.map(toServerFile)
     }
 
     // question
@@ -406,7 +639,12 @@ const Main: FC<IMainProps> = () => {
       id: questionId,
       content: message,
       isAnswer: false,
-      message_files: (files || []).filter((f: any) => f.type === 'image'),
+      // 保留全部附件，历史消息加载后可显示教师上传的文档/音频等文件。
+      message_files: (files || []).map((file: any) => ({
+        ...file,
+        // Dify 的 local_file 通常不会返回图片 URL，使用上传前的本地预览地址展示。
+        url: file.url || file.base64Url || '',
+      })),
     }
 
     const placeholderAnswerId = `answer-placeholder-${Date.now()}`
@@ -419,8 +657,6 @@ const Main: FC<IMainProps> = () => {
     const newList = [...getChatList(), questionItem, placeholderAnswerItem]
     setChatList(newList)
 
-    let isAgentMode = false
-
     // answer
     const responseItem: ChatItem = {
       id: `${Date.now()}`,
@@ -429,10 +665,27 @@ const Main: FC<IMainProps> = () => {
       message_files: [],
       isAnswer: true,
     }
+    let hasReceivedAnswer = false
     let hasSetResponseId = false
+    const thinkStreamFilter = createThinkStreamFilter()
 
     const prevTempNewConversationId = getCurrConversationId() || '-1'
     let tempNewConversationId = ''
+
+    // 立即在历史记录里加一个"新对话"占位，避免带图片的消息发出去后等待 Dify 拉取新列表
+    if (isNewConversation) {
+      setConversationList(produce(conversationList, (draft) => {
+        // 避免重复插入
+        if (draft.some(item => item.id === '-1')) return
+        draft.unshift({
+          id: '-1',
+          name: t('app.chat.newChatDefaultName'),
+          inputs: newConversationInputs,
+          introduction: conversationIntroduction,
+          suggested_questions: suggestedQuestions,
+        })
+      }))
+    }
 
     setRespondingTrue()
     sendChatMessage(data, {
@@ -440,8 +693,15 @@ const Main: FC<IMainProps> = () => {
         setAbortController(abortController)
       },
       onData: (message: string, isFirstMessage: boolean, { conversationId: newConversationId, messageId, taskId }: any) => {
-        if (!isAgentMode) {
-          responseItem.content = responseItem.content + message
+        const visibleMessage = thinkStreamFilter.push(message || '')
+        // Replace the temporary status as soon as the first model content
+        // arrives, instead of appending the answer to the status text.
+        if (visibleMessage && !hasReceivedAnswer) {
+          responseItem.content = ''
+          hasReceivedAnswer = true
+        }
+        if (visibleMessage) {
+          responseItem.content = responseItem.content + visibleMessage
         }
         else {
           const lastThought = responseItem.agent_thoughts?.[responseItem.agent_thoughts?.length - 1]
@@ -452,7 +712,8 @@ const Main: FC<IMainProps> = () => {
           hasSetResponseId = true
         }
 
-        if (isFirstMessage && newConversationId) { tempNewConversationId = newConversationId }
+        // 某些工作流先发送 thought/workflow 事件，conversation_id 不一定出现在第一条事件。
+        if (newConversationId) { tempNewConversationId = newConversationId }
 
         setMessageTaskId(taskId)
         // has switched to other conversation
@@ -468,22 +729,69 @@ const Main: FC<IMainProps> = () => {
         })
       },
       async onCompleted(hasError?: boolean) {
-        if (hasError) { return }
-
-        if (getConversationIdChangeBecauseOfNew()) {
-          const { data: allConversations }: any = await fetchConversations()
-          const newItem: any = await generationConversationName(allConversations[0].id)
-
-          const newAllConversations = produce(allConversations, (draft: any) => {
-            draft[0].name = newItem.name
-          })
-          setConversationList(newAllConversations as any)
+        if (hasError) {
+          setAbortController(null)
+          setRespondingFalse()
+          return
         }
+
+        // Dify 有时只返回 workflow 事件而没有正文，不能让界面停留在空白气泡。
+        if (!responseItem.content) {
+          setChatList(produce(getChatList(), (draft) => {
+            for (let i = draft.length - 1; i >= 0; i--) {
+              if (draft[i].isAnswer) {
+                draft[i].content = '工作流未返回文本结果，请检查 Dify 的结束节点或回答节点是否配置了输出。'
+                return
+              }
+            }
+          }))
+        }
+
+        const shouldGenerateName = getConversationIdChangeBecauseOfNew()
         setConversationIdChangeBecauseOfNew(false)
         resetNewConversationInputs()
         setChatNotStarted()
-        setCurrConversationId(tempNewConversationId, APP_ID, true)
         setRespondingFalse()
+        setAbortController(null)
+
+        // 回复完成后刷新历史列表，这样即使命名接口较慢或回复没有文本，
+        // 新会话也会马上出现在左侧“历史记录”中。
+        void (async () => {
+          try {
+            const { data: allConversations }: any = await fetchConversations()
+            if (!Array.isArray(allConversations)) return
+            setConversationList(allConversations)
+            // 如果流式事件没有携带会话 ID，使用 Dify 返回的最新会话作为兜底，
+            // 避免把空字符串写入 localStorage，导致点击历史记录时请求空会话。
+            const newlyCreatedConversation = allConversations.find(
+              item => item.id && !previousConversationIds.has(item.id),
+            )
+            const conversationId = tempNewConversationId
+              || newlyCreatedConversation?.id
+              || (shouldGenerateName ? '' : prevTempNewConversationId)
+            if (conversationId && conversationId !== '-1') {
+              setCurrConversationId(conversationId, APP_ID, true)
+              cacheConversationAttachments(conversationId, message, files || [])
+            }
+            if (shouldGenerateName && conversationId && conversationId !== '-1') {
+              try {
+                const newItem: any = await generationConversationName(conversationId)
+                if (newItem?.name) {
+                  setConversationList(produce(allConversations, (draft: any) => {
+                    const target = draft.find((item: any) => item.id === conversationId)
+                    if (target) target.name = newItem.name
+                  }) as any)
+                }
+              }
+              catch {
+                // 自动命名失败不影响历史记录显示。
+              }
+            }
+          }
+          catch {
+            // 历史列表刷新失败不影响已经完成的回答。
+          }
+        })()
       },
       onFile(file) {
         const lastThought = responseItem.agent_thoughts?.[responseItem.agent_thoughts?.length - 1]
@@ -497,7 +805,10 @@ const Main: FC<IMainProps> = () => {
         })
       },
       onThought(thought) {
-        isAgentMode = true
+        if (!hasReceivedAnswer) {
+          responseItem.content = ''
+          hasReceivedAnswer = true
+        }
         const response = responseItem as any
         if (thought.message_id && !hasSetResponseId) {
           response.id = thought.message_id
@@ -533,6 +844,8 @@ const Main: FC<IMainProps> = () => {
         })
       },
       onMessageEnd: (messageEnd) => {
+        const endedConversationId = (messageEnd as any).conversation_id
+        if (endedConversationId) { tempNewConversationId = endedConversationId }
         if (messageEnd.metadata?.annotation_reply) {
           responseItem.id = messageEnd.id
           responseItem.annotation = ({
@@ -574,14 +887,28 @@ const Main: FC<IMainProps> = () => {
           },
         ))
       },
-      onError() {
+      onError(errorMessage) {
+        setAbortController(null)
         setRespondingFalse()
-        // role back placeholder answer
+        // 找到最后一条回答（可能是 placeholder，也可能是已经更新的 responseItem）替换为错误提示
         setChatList(produce(getChatList(), (draft) => {
-          draft.splice(draft.findIndex(item => item.id === placeholderAnswerId), 1)
+          // 倒序找到最后一条 answer
+          for (let i = draft.length - 1; i >= 0; i--) {
+            if (draft[i].isAnswer) {
+              draft[i] = {
+                ...draft[i],
+                content: errorMessage || '请求失败，请稍后再试。',
+                isAnswer: true,
+              }
+              return
+            }
+          }
         }))
       },
-      onWorkflowStarted: ({ workflow_run_id, task_id }) => {
+      onWorkflowStarted: (workflowStarted: any) => {
+        const eventConversationId = workflowStarted.conversation_id || workflowStarted.data?.conversation_id
+        if (eventConversationId) { tempNewConversationId = eventConversationId }
+        const { workflow_run_id, task_id } = workflowStarted
         // taskIdRef.current = task_id
         responseItem.workflow_run_id = workflow_run_id
         responseItem.workflowProcess = {
@@ -596,8 +923,61 @@ const Main: FC<IMainProps> = () => {
           }
         }))
       },
-      onWorkflowFinished: ({ data }) => {
+      onWorkflowFinished: (workflowFinished: any) => {
+        const eventConversationId = workflowFinished.conversation_id || workflowFinished.data?.conversation_id
+        if (eventConversationId) { tempNewConversationId = eventConversationId }
+        const { data } = workflowFinished
         responseItem.workflowProcess!.status = data.status as WorkflowRunningStatus
+        // 只在 status 明确为 failed 时才视为失败。
+        // Dify 成功运行也可能在 data.error 带回 warning 字符串（不是真错误），
+        // 用 || data.error 会误判。
+        if (data.status === WorkflowRunningStatus.Failed) {
+          // 把每个字段单独 log，DevTools 一眼能看清不用展开
+          console.error(
+            '[workflow failed]',
+            'status:', data.status,
+            'error:', data.error,
+            'outputs:', data.outputs,
+            'conversationId:', eventConversationId,
+            'taskId:', messageTaskId,
+          )
+          responseItem.content = '请求失败'
+          hasReceivedAnswer = true
+        }
+        else {
+          // 调试用：成功后也打一下 status / error / outputs，便于排查
+          console.debug('[workflow finished]', { status: data.status, error: data.error, hasOutputs: data.outputs != null, conversationId: eventConversationId, taskId: messageTaskId })
+        }
+        const workflowOutput = stripThinkMarkup(formatWorkflowOutput(data.outputs))
+        if (workflowOutput && !responseItem.content) {
+          // 工作流通常只在 workflow_finished 中返回完整 outputs，前端按短文本块
+          // 逐步追加，避免结果一次性整段出现；真正的 message 事件仍由 onData 实时处理。
+          hasReceivedAnswer = true
+          let outputIndex = Math.min(3, workflowOutput.length)
+          responseItem.content = workflowOutput.slice(0, outputIndex)
+          updateCurrentQA({
+            responseItem,
+            questionId,
+            placeholderAnswerId,
+            questionItem,
+          })
+          if (outputIndex < workflowOutput.length) {
+            workflowTypingTimerRef.current = setInterval(() => {
+              outputIndex = Math.min(outputIndex + 3, workflowOutput.length)
+              responseItem.content = workflowOutput.slice(0, outputIndex)
+              updateCurrentQA({
+                responseItem,
+                questionId,
+                placeholderAnswerId,
+                questionItem,
+              })
+              if (outputIndex >= workflowOutput.length && workflowTypingTimerRef.current) {
+                clearInterval(workflowTypingTimerRef.current)
+                workflowTypingTimerRef.current = null
+              }
+            }, 24)
+          }
+        }
         setChatList(produce(getChatList(), (draft) => {
           const currentIndex = draft.findIndex(item => item.id === responseItem.id)
           draft[currentIndex] = {
@@ -606,7 +986,10 @@ const Main: FC<IMainProps> = () => {
           }
         }))
       },
-      onNodeStarted: ({ data }) => {
+      onNodeStarted: (nodeStarted: any) => {
+        const eventConversationId = nodeStarted.conversation_id || nodeStarted.data?.conversation_id
+        if (eventConversationId) { tempNewConversationId = eventConversationId }
+        const { data } = nodeStarted
         responseItem.workflowProcess!.tracing!.push(data as any)
         setChatList(produce(getChatList(), (draft) => {
           const currentIndex = draft.findIndex(item => item.id === responseItem.id)
@@ -616,7 +999,10 @@ const Main: FC<IMainProps> = () => {
           }
         }))
       },
-      onNodeFinished: ({ data }) => {
+      onNodeFinished: (nodeFinished: any) => {
+        const eventConversationId = nodeFinished.conversation_id || nodeFinished.data?.conversation_id
+        if (eventConversationId) { tempNewConversationId = eventConversationId }
+        const { data } = nodeFinished
         const currentIndex = responseItem.workflowProcess!.tracing!.findIndex(item => item.node_id === data.node_id)
         responseItem.workflowProcess!.tracing[currentIndex] = data as any
         setChatList(produce(getChatList(), (draft) => {
@@ -632,6 +1018,7 @@ const Main: FC<IMainProps> = () => {
 
   const handleFeedback = async (messageId: string, feedback: Feedbacktype) => {
     await updateFeedback({ url: `/messages/${messageId}/feedbacks`, body: { rating: feedback.rating } })
+    skipNextScrollRef.current = true
     const newChatList = chatList.map((item) => {
       if (item.id === messageId) {
         return {
@@ -645,12 +1032,32 @@ const Main: FC<IMainProps> = () => {
     notify({ type: 'success', message: t('common.api.success') })
   }
 
+  const handleClearHistory = async () => {
+    if (isResponding) {
+      notify({ type: 'info', message: '请等待当前回复完成后再清空历史记录' })
+      return
+    }
+    if (typeof window !== 'undefined' && !window.confirm('确定清空当前应用的全部历史记录吗？此操作不可撤销。')) return
+    const result: any = await clearConversations()
+    if (result?.error || result?.result === 'error') {
+      notify({ type: 'error', message: result.error || '清空历史记录失败' })
+      return
+    }
+    setConversationList([])
+    if (typeof window !== 'undefined') window.localStorage.removeItem(attachmentCacheKey)
+    setCurrConversationId('-1', APP_ID, true)
+    setChatNotStarted()
+    setChatList(generateNewChatListWithOpenStatement())
+    notify({ type: 'success', message: '历史记录已清空' })
+  }
+
   const renderSidebar = () => {
     if (!APP_ID || !APP_INFO || !promptConfig) { return null }
     return (
       <Sidebar
         list={conversationList}
         onCurrentIdChange={handleConversationIdChange}
+        onClearHistory={handleClearHistory}
         currentId={currConversationId}
         copyRight={APP_INFO.copyright || APP_INFO.title}
       />
@@ -680,7 +1087,7 @@ const Main: FC<IMainProps> = () => {
           </div>
         )}
         {/* main */}
-        <div className='min-w-0 min-h-0 flex-grow flex flex-col overflow-y-auto'>
+        <div className='min-w-0 min-h-0 flex-grow flex flex-col overflow-y-auto maiya-chat-scroll'>
           {hasRequiredInputs && (
             <ConfigSence
               conversationName={conversationName}
@@ -697,10 +1104,11 @@ const Main: FC<IMainProps> = () => {
 
           {
             hasSetInputs && (
-              <div className='relative grow w-full max-w-[1040px] mobile:w-full pt-10 mobile:pt-5 pb-[190px] mx-auto mb-3.5' ref={chatListDomRef}>
+              <div className='relative grow w-full max-w-[1120px] mobile:w-full pt-10 mobile:pt-5 pb-[210px] mobile:pb-[170px] mx-auto mb-3.5' ref={chatListDomRef}>
                 <Chat
                   chatList={chatList}
                   onSend={handleSend}
+                  onStop={handleStop}
                   onFeedback={handleFeedback}
                   isResponding={isResponding}
                   checkCanSend={checkCanSend}

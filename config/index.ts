@@ -1,7 +1,10 @@
 import type { AppInfo } from '@/types/app'
-export const APP_ID = `${process.env.NEXT_PUBLIC_APP_ID}`
-export const API_KEY = `${process.env.NEXT_PUBLIC_APP_KEY}`
-export const API_URL = `${process.env.NEXT_PUBLIC_API_URL}`
+// Do not turn missing environment variables into the literal string
+// "undefined". That value is later interpreted as an upstream URL.
+const envValue = (value: string | undefined) => value?.trim() || ''
+export const APP_ID = envValue(process.env.NEXT_PUBLIC_APP_ID)
+export const API_KEY = envValue(process.env.NEXT_PUBLIC_APP_KEY)
+export const API_URL = envValue(process.env.NEXT_PUBLIC_API_URL)
 export const APP_INFO: AppInfo = {
   title: '麦芽幼教 AI',
   description: '专为幼儿园教师打造的智慧教研助手',

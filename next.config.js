@@ -1,5 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Keep development output separate from production builds so running
+  // `next build` cannot invalidate the active dev server cache.
+  distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
   productionBrowserSourceMaps: false, // enable browser source map generation during the production build
   // Configure pageExtensions to include md and mdx
   pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],

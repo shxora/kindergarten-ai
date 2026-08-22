@@ -202,6 +202,20 @@ const handleStream = (
               })
               isFirstMessage = false
             }
+            else if (bufferObj.event === 'text_chunk' || bufferObj.event === 'llm_chunk') {
+              // Workflow streaming uses text_chunk/llm_chunk instead of the
+              // chatflow message event. Forward the text through the same
+              // callback so the UI can append it immediately.
+              const chunk = bufferObj.data?.text ?? bufferObj.data?.chunk ?? bufferObj.text ?? bufferObj.answer
+              if (typeof chunk === 'string' && chunk) {
+                onData(unicodeToChar(chunk), isFirstMessage, {
+                  conversationId: bufferObj.conversation_id,
+                  taskId: bufferObj.task_id,
+                  messageId: bufferObj.id || '',
+                })
+                isFirstMessage = false
+              }
+            }
             else if (bufferObj.event === 'agent_thought') {
               onThought?.(bufferObj as ThoughtItem)
             }
@@ -241,6 +255,13 @@ const handleStream = (
         return
       }
       if (!hasError) { read() }
+    }).catch((e: any) => {
+      // 用户点击暂停时，reader.read() 会以 AbortError 拒绝。
+      // 这不是业务失败，不应触发 onError 也不应在控制台留下 unhandled rejection。
+      const msg = String(e?.message || e || '')
+      if (e?.name === 'AbortError' || /aborted|abort/i.test(msg)) return
+      // 其它读取异常兜底
+      onCompleted?.(true)
     })
   }
   read()
@@ -299,7 +320,7 @@ const baseFetch = (url: string, fetchOptions: any, { needAllResponseContent }: I
               }
             }
             catch (e) {
-              Toast.notify({ type: 'error', message: `${e}` })
+              Toast.notify({ type: 'error', message: '请求失败，请稍后再试' })
             }
 
             return Promise.reject(resClone)
@@ -317,7 +338,8 @@ const baseFetch = (url: string, fetchOptions: any, { needAllResponseContent }: I
           resolve(needAllResponseContent ? resClone : data)
         })
         .catch((err) => {
-          Toast.notify({ type: 'error', message: err })
+          const msg = (err && err.status) ? `请求失败 (${err.status})` : '请求失败，请稍后再试'
+          Toast.notify({ type: 'error', message: typeof err === 'string' ? err : msg })
           reject(err)
         })
     }),
@@ -342,10 +364,25 @@ export const upload = (fetchOptions: any): Promise<any> => {
     for (const key in options.headers) { xhr.setRequestHeader(key, options.headers[key]) }
 
     xhr.withCredentials = true
+    xhr.responseType = 'text'
     xhr.onreadystatechange = function () {
       if (xhr.readyState === 4) {
-        if (xhr.status === 200) { resolve({ id: xhr.response }) }
-        else { reject(xhr) }
+        const responseText = String(xhr.response || '').trim()
+        let response: any = undefined
+        try { response = responseText ? JSON.parse(responseText) : undefined } catch { /* plain text response */ }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const id = response?.id || responseText
+          if (!id) {
+            reject(new Error('服务器没有返回文件 ID'))
+            return
+          }
+          resolve({ id, ...response })
+        }
+        else {
+          const error = new Error(response?.message || response?.error || responseText || `文件上传失败（${xhr.status}）`)
+          Object.assign(error, { status: xhr.status, response })
+          reject(error)
+        }
       }
     }
     xhr.upload.onprogress = options.onprogress
@@ -368,6 +405,7 @@ export const ssePost = (
     onNodeStarted,
     onNodeFinished,
     onError,
+    getAbortController,
   }: IOtherOptions,
 ) => {
   const options = Object.assign({}, baseOptions, {
@@ -380,21 +418,27 @@ export const ssePost = (
   const { body } = options
   if (body) { options.body = JSON.stringify(body) }
 
+  const abortController = new AbortController()
+  options.signal = abortController.signal
+  getAbortController?.(abortController)
+
   globalThis.fetch(urlWithPrefix, options)
     .then((res: any) => {
       if (!/^(2|3)\d{2}$/.test(res.status)) {
-        // eslint-disable-next-line no-new
-        new Promise(() => {
-          res.json().then((data: any) => {
-            Toast.notify({ type: 'error', message: data.message || 'Server Error' })
-          })
+        res.json().then((data: any) => {
+          const message = data?.message || data?.error || 'Server Error'
+          Toast.notify({ type: 'error', message })
+          onError?.(message, data?.code)
+        }).catch(() => {
+          Toast.notify({ type: 'error', message: 'Server Error' })
+          onError?.('Server Error')
         })
-        onError?.('Server Error')
         return
       }
       return handleStream(res, (str: string, isFirstMessage: boolean, moreInfo: IOnDataMoreInfo) => {
         if (moreInfo.errorMessage) {
           Toast.notify({ type: 'error', message: moreInfo.errorMessage })
+          onError?.(moreInfo.errorMessage, moreInfo.errorCode)
           return
         }
         onData?.(str, isFirstMessage, moreInfo)
@@ -403,6 +447,9 @@ export const ssePost = (
       }, onThought, onMessageEnd, onMessageReplace, onFile, onWorkflowStarted, onWorkflowFinished, onNodeStarted, onNodeFinished)
     })
     .catch((e) => {
+      // 用户点击暂停后，浏览器会把正在读取的响应流标记为 aborted。
+      // 这不是业务失败，不应弹出 BodyStreamBuffer 错误。
+      if (e?.name === 'AbortError' || options.signal?.aborted || /body.*stream.*aborted|aborted|abort/i.test(String(e?.message || e))) return
       Toast.notify({ type: 'error', message: e })
       onError?.(e)
     })

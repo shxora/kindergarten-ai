@@ -17,3 +17,24 @@ export async function GET(request: NextRequest) {
     })
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  const { sessionId, user } = getInfo(request)
+  try {
+    const response: any = await client.getConversations(user, null, 100)
+    const payload = response?.data
+    const conversations = Array.isArray(payload) ? payload : (Array.isArray(payload?.data) ? payload.data : [])
+    await Promise.all(conversations
+      .filter((conversation: any) => conversation?.id)
+      .map((conversation: any) => client.deleteConversation(conversation.id, user)))
+    return NextResponse.json({ result: 'success', deleted: conversations.length }, {
+      headers: setSession(sessionId),
+    })
+  }
+  catch (error: any) {
+    return NextResponse.json({
+      result: 'error',
+      error: error?.response?.data?.message || error?.message || '清空历史记录失败',
+    }, { status: 500, headers: setSession(sessionId) })
+  }
+}

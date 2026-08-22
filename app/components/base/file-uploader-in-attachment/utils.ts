@@ -97,12 +97,21 @@ export const getSupportFileType = (fileName: string, fileMimetype: string, isCus
 }
 
 export const getProcessedFiles = (files: FileEntity[]) => {
-  return files.filter(file => file.progress !== -1 && fileIsUploaded(file)).map(fileItem => ({
-    type: fileItem.supportFileType,
-    transfer_method: fileItem.transferMethod,
-    url: fileItem.url || '',
-    upload_file_id: fileItem.uploadedId || '',
-  }))
+  return files.filter(file => file.progress !== -1 && fileIsUploaded(file)).map((fileItem) => {
+    const isImage = fileItem.supportFileType === SupportUploadFileTypes.image
+    return {
+      filename: fileItem.name,
+      type: fileItem.supportFileType,
+      transfer_method: fileItem.transferMethod,
+      // url 字段不能塞 base64 —— Dify 会把它嵌进 LLM message 的 content，
+      // 一些只支持 system/assistant/tool/function 角色的 LLM 会因此 400 失败。
+      // 本地图片要预览就靠下面的 base64Url 字段（前端专用，Dify 不读）。
+      url: fileItem.url || '',
+      // 仅图片类型附加本地 base64，给前端问题卡显示预览用
+      ...(isImage && fileItem.base64Url ? { base64Url: fileItem.base64Url } : {}),
+      upload_file_id: fileItem.uploadedId || '',
+    }
+  })
 }
 
 export const getProcessedFilesFromResponse = (files: FileResponse[]) => {

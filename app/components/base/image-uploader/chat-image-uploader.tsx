@@ -32,7 +32,7 @@ const UploadOnlyFromLocal: FC<UploadOnlyFromLocalProps> = ({
             ${hovering && 'opacity-80'}
           `}>
             <ImagePlus className='w-4 h-4' />
-            <span>拍照</span>
+            <span>上传图片</span>
           </div>
         )
       }
@@ -80,7 +80,7 @@ const UploaderButton: FC<UploaderButtonProps> = ({
           ${disabled ? 'cursor-not-allowed' : 'cursor-pointer'}
         `}>
           <ImagePlus className='w-4 h-4 text-gray-500' />
-          <span>拍照</span>
+          <span>上传图片</span>
         </div>
       </PortalToFollowElemTrigger>
       <PortalToFollowElemContent className='z-50'>

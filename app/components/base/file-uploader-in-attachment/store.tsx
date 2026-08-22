@@ -1,5 +1,6 @@
 import {
   createContext,
+  useEffect,
   useContext,
   useRef,
 } from 'react'
@@ -56,6 +57,12 @@ export const FileContextProvider = ({
   const storeRef = useRef<FileStore | undefined>(undefined)
 
   if (!storeRef.current) { storeRef.current = createFileStore(value, onChange) }
+
+  // FileContextProvider 的 store 只创建一次；同步受控 value，确保发送后
+  // 父组件 setAttachmentFiles([]) 时，上传列表也会真正清空。
+  useEffect(() => {
+    storeRef.current?.setState({ files: value ? [...value] : [] })
+  }, [value])
 
   return (
     <FileContext.Provider value={storeRef.current}>

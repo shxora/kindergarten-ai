@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import {
   ChatBubbleOvalLeftEllipsisIcon,
   PencilSquareIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { ChatBubbleOvalLeftEllipsisIcon as ChatBubbleOvalLeftEllipsisSolidIcon } from '@heroicons/react/24/solid'
 import Button from '@/app/components/base/button'
@@ -20,6 +21,7 @@ export interface ISidebarProps {
   copyRight: string
   currentId: string
   onCurrentIdChange: (id: string) => void
+  onClearHistory?: () => void
   list: ConversationItem[]
 }
 
@@ -27,6 +29,7 @@ const Sidebar: FC<ISidebarProps> = ({
   copyRight,
   currentId,
   onCurrentIdChange,
+  onClearHistory,
   list,
 }) => {
   const { t } = useTranslation()
@@ -45,7 +48,22 @@ const Sidebar: FC<ISidebarProps> = ({
         </div>
       )}
 
-      <nav className="mt-4 flex-1 space-y-1 p-4 !pt-0">
+      <div className="flex items-center justify-between px-4 pt-4 pb-2 text-xs font-semibold text-[#a58c72] tracking-wide">
+        <span>历史记录</span>
+        {list.some(item => item.id !== '-1') && onClearHistory && (
+          <button
+            type="button"
+            onClick={onClearHistory}
+            className="rounded-md p-1 text-[#b9a58d] transition-colors hover:bg-[#fff4e8] hover:text-[#d87e2d]"
+            title="清空历史记录"
+            aria-label="清空历史记录"
+          >
+            <TrashIcon className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
+      <nav className="flex-1 space-y-1 px-4 pb-4">
         {list.map((item) => {
           const isCurrent = item.id === currentId
           const ItemIcon
@@ -57,8 +75,8 @@ const Sidebar: FC<ISidebarProps> = ({
               className={classNames(
                 isCurrent
                   ? 'maiya-conversation-active'
-                  : 'text-gray-700 hover:bg-[#fff8e9] hover:text-gray-700',
-                'group flex items-center rounded-md px-2 py-2 text-sm font-medium cursor-pointer',
+                  : 'text-gray-700 hover:text-gray-700',
+                'group flex min-w-0 items-center rounded-md border border-transparent hover:border-[#f7d793] px-2 py-2 text-sm font-medium cursor-pointer',
               )}
             >
               <ItemIcon
@@ -70,7 +88,7 @@ const Sidebar: FC<ISidebarProps> = ({
                 )}
                 aria-hidden="true"
               />
-              {item.name}
+              <span className="truncate" title={item.name}>{item.name}</span>
             </div>
           )
         })}

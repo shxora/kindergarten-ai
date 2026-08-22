@@ -3,24 +3,20 @@ import {
   useState,
 } from 'react'
 import {
-  RiDeleteBinLine,
   RiDownloadLine,
   RiEyeLine,
 } from '@remixicon/react'
 import FileTypeIcon from './file-type-icon'
-import FileImageRender from './file-image-render'
 import type { FileEntity } from './types'
 import {
   downloadFile,
-  fileIsUploaded,
   getFileAppearanceType,
   getFileExtension,
 } from './utils'
 import { SupportUploadFileTypes } from './types'
 import ActionButton from '@/app/components/base/action-button'
-import ProgressCircle from '@/app/components/base/progress-bar/progress-circle'
+import AttachmentCard from '@/app/components/base/attachment-card'
 import { formatFileSize } from '@/utils/format'
-import cn from '@/utils/classnames'
 import ReplayLine from '@/app/components/base/icons/other/ReplayLine'
 import ImagePreview from '@/app/components/base/image-uploader/image-preview'
 
@@ -32,6 +28,7 @@ interface FileInAttachmentItemProps {
   onReUpload?: (fileId: string) => void
   canPreview?: boolean
 }
+
 const FileInAttachmentItem = ({
   file,
   showDeleteAction,
@@ -44,109 +41,60 @@ const FileInAttachmentItem = ({
   const ext = getFileExtension(name, type, isRemote)
   const isImageFile = supportFileType === SupportUploadFileTypes.image
   const [imagePreviewUrl, setImagePreviewUrl] = useState('')
+
+  const meta = (
+    <>
+      {ext && <span>{ext.toLowerCase()}</span>}
+      {ext && <span className='system-2xs-medium mx-1'>·</span>}
+      {!!file.size && <span>{formatFileSize(file.size)}</span>}
+    </>
+  )
+
+  const hasActions = progress === -1 || (canPreview && isImageFile) || showDownloadAction
+  const actions = hasActions ? (
+    <>
+      {progress === -1 && (
+        <ActionButton
+          className='mr-1'
+          onClick={() => onReUpload?.(id)}
+        >
+          <ReplayLine className='h-4 w-4 text-text-tertiary' />
+        </ActionButton>
+      )}
+      {canPreview && isImageFile && (
+        <ActionButton className='mr-1' onClick={() => setImagePreviewUrl(url || '')}>
+          <RiEyeLine className='h-4 w-4' />
+        </ActionButton>
+      )}
+      {showDownloadAction && (
+        <ActionButton onClick={(event) => {
+          event.stopPropagation()
+          downloadFile(url || base64Url || '', name)
+        }}>
+          <RiDownloadLine className='h-4 w-4' />
+        </ActionButton>
+      )}
+    </>
+  ) : undefined
+
   return (
     <>
-      <div className={cn(
-        'maiya-upload-card relative flex h-16 items-center rounded-lg border-[0.5px] border-components-panel-border bg-components-panel-on-panel-item-bg pr-3 shadow-xs',
-        progress === -1 && 'border-state-destructive-border bg-state-destructive-hover',
-      )}>
-        <div className='flex h-16 w-16 shrink-0 items-center justify-center'>
-          {
-            isImageFile && (
-              <FileImageRender
-                className='h-10 w-10'
-                imageUrl={base64Url || url || ''}
-              />
-            )
-          }
-          {
-            !isImageFile && (
-              <FileTypeIcon
-                type={getFileAppearanceType(name, type)}
-                size='lg'
-              />
-            )
-          }
-        </div>
-        <div className='mr-1 w-0 grow'>
-          <div
-            className='mb-1 flex items-center truncate text-[12px] leading-4 text-text-secondary'
-            title={file.name}
-          >
-            <div className='truncate'>{name}</div>
-          </div>
-          <div className='flex items-center text-[11px] leading-4 text-text-tertiary'>
-            {
-              ext && (
-                <span>{ext.toLowerCase()}</span>
-              )
-            }
-            {
-              ext && (
-                <span className='system-2xs-medium mx-1'>•</span>
-              )
-            }
-            {
-              !!file.size && (
-                <span>{formatFileSize(file.size)}</span>
-              )
-            }
-          </div>
-        </div>
-        <div className='flex shrink-0 items-center'>
-          {
-            progress >= 0 && !fileIsUploaded(file) && (
-              <ProgressCircle
-                className='mr-2.5'
-                percentage={progress}
-              />
-            )
-          }
-          {
-            progress === -1 && (
-              <ActionButton
-                className='mr-1'
-                onClick={() => onReUpload?.(id)}
-              >
-                <ReplayLine className='h-4 w-4 text-text-tertiary' />
-              </ActionButton>
-            )
-          }
-          {
-            showDeleteAction && (
-              <ActionButton onClick={() => onRemove?.(id)}>
-                <RiDeleteBinLine className='h-4 w-4' />
-              </ActionButton>
-            )
-          }
-          {
-            canPreview && isImageFile && (
-              <ActionButton className='mr-1' onClick={() => setImagePreviewUrl(url || '')}>
-                <RiEyeLine className='h-4 w-4' />
-              </ActionButton>
-            )
-          }
-          {
-            showDownloadAction && (
-              <ActionButton onClick={(e) => {
-                e.stopPropagation()
-                downloadFile(url || base64Url || '', name)
-              }}>
-                <RiDownloadLine className='h-4 w-4' />
-              </ActionButton>
-            )
-          }
-        </div>
-      </div>
-      {
-        imagePreviewUrl && canPreview && (
-          <ImagePreview
-            title={name}
-            url={imagePreviewUrl}
-            onCancel={() => setImagePreviewUrl('')}
-          />
-        )
-      }
+      <AttachmentCard
+        name={name}
+        meta={meta}
+        previewUrl={base64Url || url || undefined}
+        previewAlt={name}
+        icon={<FileTypeIcon type={getFileAppearanceType(name, type)} size='lg' className='!h-7 !w-7' />}
+        onDelete={showDeleteAction ? () => onRemove?.(id) : undefined}
+        actions={actions}
+        className={progress === -1 ? 'border-state-destructive-border bg-state-destructive-hover' : undefined}
+      />
+      {imagePreviewUrl && canPreview && (
+        <ImagePreview
+          url={imagePreviewUrl}
+          onCancel={() => setImagePreviewUrl('')}
+        />
+      )}
     </>
   )
 }

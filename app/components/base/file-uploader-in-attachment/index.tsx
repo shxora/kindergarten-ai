@@ -18,6 +18,7 @@ import FileItem from './file-item'
 import Button from '@/app/components/base/button'
 import cn from '@/utils/classnames'
 import { TransferMethod } from '@/types/app'
+import { fileIsUploaded } from './utils'
 
 interface Option {
   value: string
@@ -27,10 +28,12 @@ interface Option {
 interface FileUploaderInAttachmentProps {
   fileConfig: FileUpload
   variant?: 'default' | 'media'
+  renderMode?: 'all' | 'button' | 'list'
 }
 const FileUploaderInAttachment = ({
   fileConfig,
   variant = 'default',
+  renderMode = 'all',
 }: FileUploaderInAttachmentProps) => {
   const { t } = useTranslation()
   const files = useStore(s => s.files)
@@ -89,19 +92,38 @@ const FileUploaderInAttachment = ({
 
   if (variant === 'media') {
     const canUploadLocal = fileConfig.allowed_file_upload_methods?.includes(TransferMethod.local_file)
-    return (
-      <div className='maiya-file-area'>
-        {canUploadLocal && (
-          <div className='maiya-media-button maiya-file-button relative flex items-center justify-center h-9 px-3 rounded-full cursor-pointer'>
-            <span className='text-base leading-none'>📎</span><span>上传文件</span>
-            <FileInput fileConfig={fileConfig} />
-          </div>
-        )}
+    const uploadingFiles = files.filter(file => file.progress >= 0 && !fileIsUploaded(file))
+    const overallProgress = uploadingFiles.length
+      ? Math.round(uploadingFiles.reduce((total, file) => total + file.progress, 0) / uploadingFiles.length)
+      : 0
+    const uploadButton = canUploadLocal && (
+      <div className='maiya-media-button maiya-file-button relative flex items-center justify-center h-9 px-3 rounded-full cursor-pointer'>
+        <RiUploadCloud2Line className='h-4 w-4 mr-1.5' /><span>上传文件</span>
+        <FileInput fileConfig={fileConfig} />
+      </div>
+    )
+    const uploadedFiles = (
+      <div className='maiya-uploaded-files-wrapper'>
         <div className='maiya-uploaded-files'>
           {files.map(file => (
             <FileItem key={file.id} file={file} showDeleteAction showDownloadAction={false} onRemove={() => handleRemoveFile(file.id)} onReUpload={() => handleReUploadFile(file.id)} />
           ))}
         </div>
+        {uploadingFiles.length > 0 && (
+          <div className='maiya-upload-progress' role='progressbar' aria-label='文件上传进度'>
+            <div
+              className='maiya-upload-progress-bar'
+              style={{ width: `${Math.min(100, Math.max(0, overallProgress))}%` }}
+            />
+          </div>
+        )}
+      </div>
+    )
+
+    return (
+      <div className={`maiya-file-area ${renderMode === 'button' ? 'maiya-file-area-button' : ''} ${renderMode === 'list' ? 'maiya-file-area-list' : ''}`}>
+        {renderMode !== 'list' && uploadButton}
+        {renderMode !== 'button' && uploadedFiles}
       </div>
     )
   }
@@ -134,19 +156,21 @@ interface FileUploaderInAttachmentWrapperProps {
   onChange: (files: FileEntity[]) => void
   fileConfig: FileUpload
   variant?: 'default' | 'media'
+  renderMode?: 'all' | 'button' | 'list'
 }
 const FileUploaderInAttachmentWrapper = ({
   value,
   onChange,
   fileConfig,
   variant,
+  renderMode = 'all',
 }: FileUploaderInAttachmentWrapperProps) => {
   return (
     <FileContextProvider
       value={value}
       onChange={onChange}
     >
-      <FileUploaderInAttachment fileConfig={fileConfig} variant={variant} />
+      <FileUploaderInAttachment fileConfig={fileConfig} variant={variant} renderMode={renderMode} />
     </FileContextProvider>
   )
 }

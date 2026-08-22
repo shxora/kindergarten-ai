@@ -147,6 +147,8 @@ export interface ImageFile {
 
 export interface VisionFile {
   id?: string
+  filename?: string
+  base64Url?: string
   type: string
   transfer_method: TransferMethod
   url: string

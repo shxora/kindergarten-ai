@@ -2,13 +2,14 @@ import type { FC } from 'react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import Loading02 from '@/app/components/base/icons/line/loading-02'
-import XClose from '@/app/components/base/icons/line/x-close'
 import RefreshCcw01 from '@/app/components/base/icons/line/refresh-ccw-01'
 import AlertTriangle from '@/app/components/base/icons/solid/alert-triangle'
 import TooltipPlus from '@/app/components/base/tooltip-plus'
 import type { ImageFile } from '@/types/app'
 import { TransferMethod } from '@/types/app'
 import ImagePreview from '@/app/components/base/image-uploader/image-preview'
+import AttachmentCard from '@/app/components/base/attachment-card'
+import { formatFileSize } from '@/utils/format'
 
 interface ImageListProps {
   list: ImageFile[]
@@ -36,91 +37,58 @@ const ImageList: FC<ImageListProps> = ({
   const handleImageLinkLoadError = (item: ImageFile) => {
     if (item.type === TransferMethod.remote_url && onImageLinkLoadError) { onImageLinkLoadError(item._id) }
   }
+  const uploadingItems = list.filter(item => item.progress >= 0 && item.progress < 100)
+  const uploadProgress = uploadingItems.length
+    ? Math.round(uploadingItems.reduce((total, item) => total + item.progress, 0) / uploadingItems.length)
+    : 0
 
   return (
-    <div className='flex flex-wrap'>
-      {
-        list.map(item => (
-          <div
+    <div className='flex flex-wrap gap-2'>
+      {list.map((item) => {
+        const previewSrc = item.type === TransferMethod.remote_url ? item.url : item.base64Url
+        const imageName = item.file?.name || (item.url ? item.url.split('/').pop()?.split('?')[0] : '') || '图片'
+        const imageSize = item.file?.size ? formatFileSize(item.file.size) : ''
+        const overlay = item.type === TransferMethod.local_file && item.progress === -1
+          ? <RefreshCcw01 className='absolute left-5 top-6 z-10 h-5 w-5 text-white' onClick={() => onReUpload?.(item._id)} />
+          : item.type === TransferMethod.remote_url && item.progress !== 100
+            ? (
+              <div className={`absolute inset-0 z-[1] flex items-center justify-center rounded-lg border ${item.progress === -1 ? 'bg-[#FEF0C7] border-[#DC6803]' : 'bg-black/[0.16] border-transparent'}`}>
+                {item.progress > -1 && <Loading02 className='h-5 w-5 animate-spin text-white' />}
+                {item.progress === -1 && (
+                  <TooltipPlus popupContent={t('common.imageUploader.pasteImageLinkInvalid')}>
+                    <AlertTriangle className='h-4 w-4 text-[#DC6803]' />
+                  </TooltipPlus>
+                )}
+              </div>
+            )
+            : undefined
+
+        return (
+          <AttachmentCard
             key={item._id}
-            className='group relative mr-1 border-[0.5px] border-black/5 rounded-lg'
-          >
-            {
-              item.type === TransferMethod.local_file && item.progress !== 100 && (
-                <>
-                  <div
-                    className='absolute inset-0 flex items-center justify-center z-[1] bg-black/30'
-                    style={{ left: item.progress > -1 ? `${item.progress}%` : 0 }}
-                  >
-                    {
-                      item.progress === -1 && (
-                        <RefreshCcw01 className='w-5 h-5 text-white' onClick={() => onReUpload && onReUpload(item._id)} />
-                      )
-                    }
-                  </div>
-                  {
-                    item.progress > -1 && (
-                      <span className='absolute top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%] text-sm text-white mix-blend-lighten z-[1]'>{item.progress}%</span>
-                    )
-                  }
-                </>
-              )
-            }
-            {
-              item.type === TransferMethod.remote_url && item.progress !== 100 && (
-                <div className={`
-                  absolute inset-0 flex items-center justify-center rounded-lg z-[1] border
-                  ${item.progress === -1 ? 'bg-[#FEF0C7] border-[#DC6803]' : 'bg-black/[0.16] border-transparent'}
-                `}>
-                  {
-                    item.progress > -1 && (
-                      <Loading02 className='animate-spin w-5 h-5 text-white' />
-                    )
-                  }
-                  {
-                    item.progress === -1 && (
-                      <TooltipPlus popupContent={t('common.imageUploader.pasteImageLinkInvalid')}>
-                        <AlertTriangle className='w-4 h-4 text-[#DC6803]' />
-                      </TooltipPlus>
-                    )
-                  }
-                </div>
-              )
-            }
-            <img
-              className='w-16 h-16 rounded-lg object-cover cursor-pointer border-[0.5px] border-black/5'
-              alt=''
-              onLoad={() => handleImageLinkLoadSuccess(item)}
-              onError={() => handleImageLinkLoadError(item)}
-              src={item.type === TransferMethod.remote_url ? item.url : item.base64Url}
-              onClick={() => item.progress === 100 && setImagePreviewUrl((item.type === TransferMethod.remote_url ? item.url : item.base64Url) as string)}
-            />
-            {
-              !readonly && (
-                <div
-                  className={`
-                    absolute z-10 -top-[9px] -right-[9px] items-center justify-center w-[18px] h-[18px] 
-                    bg-white hover:bg-gray-50 border-[0.5px] border-black/[0.02] rounded-2xl shadow-lg
-                    cursor-pointer
-                    ${item.progress === -1 ? 'flex' : 'hidden group-hover:flex'}
-                  `}
-                  onClick={() => onRemove && onRemove(item._id)}
-                >
-                  <XClose className='w-3 h-3 text-gray-500' />
-                </div>
-              )
-            }
-          </div>
-        ))
-      }
-      {
-        imagePreviewUrl && (
-          <ImagePreview
-            url={imagePreviewUrl}
-            onCancel={() => setImagePreviewUrl('')}
+            name={imageName}
+            meta={<>图片{imageSize ? ` · ${imageSize}` : ''}</>}
+            previewUrl={previewSrc || undefined}
+            previewAlt={imageName}
+            onPreviewLoad={() => handleImageLinkLoadSuccess(item)}
+            onPreviewError={() => handleImageLinkLoadError(item)}
+            onPreview={() => item.progress === 100 && setImagePreviewUrl(previewSrc as string)}
+            onDelete={!readonly ? () => onRemove?.(item._id) : undefined}
+            overlay={overlay}
           />
         )
-      }
+      })}
+      {uploadingItems.length > 0 && (
+        <div className='maiya-image-upload-progress' role='progressbar' aria-label='图片上传进度'>
+          <div className='maiya-image-upload-progress-bar' style={{ width: `${uploadProgress}%` }} />
+        </div>
+      )}
+      {imagePreviewUrl && (
+        <ImagePreview
+          url={imagePreviewUrl}
+          onCancel={() => setImagePreviewUrl('')}
+        />
+      )}
     </div>
   )
 }
