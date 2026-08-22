@@ -50,7 +50,9 @@ export const clearConversations = async () => {
   const conversations: any = await fetchConversations()
   if (conversations?.error) { return conversations }
   const items = Array.isArray(conversations?.data) ? conversations.data : []
-  await Promise.all(items.filter(item => item?.id).map(item => del(`conversations/${item.id}`)))
+  const results = await Promise.allSettled(items.filter(item => item?.id).map(item => del(`conversations/${item.id}`)))
+  const failed = results.find(result => result.status === 'rejected')
+  if (failed?.status === 'rejected') { return { error: '部分历史会话删除失败，请稍后重试' } }
   return { result: 'success' }
 }
 

@@ -304,6 +304,7 @@ const baseFetch = (url: string, fetchOptions: any, { needAllResponseContent }: I
 
   const { method, params } = options
   let { body } = options
+  if (directApi && method === 'DELETE' && !body) { body = {} }
   body = prepareRequest(options, body)
   // handle query
   if (method === 'GET' && params) {
@@ -317,10 +318,6 @@ const baseFetch = (url: string, fetchOptions: any, { needAllResponseContent }: I
     else { urlWithPrefix += `&${paramsArray.join('&')}` }
 
     delete options.params
-  }
-
-  if (directApi && method === 'DELETE' && !body) {
-    urlWithPrefix += `${urlWithPrefix.includes('?') ? '&' : '?'}user=${encodeURIComponent(getDirectUser())}`
   }
 
   if (body) { options.body = JSON.stringify(body) }
