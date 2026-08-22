@@ -3,6 +3,15 @@ import { getLocaleOnServer } from '@/i18n/server'
 import './styles/globals.css'
 import './styles/markdown.scss'
 
+export const metadata = {
+  title: '麦芽幼教 AI',
+  icons: {
+    icon: '/favicon.svg?v=2',
+    shortcut: '/favicon.svg?v=2',
+    apple: '/favicon.svg?v=2',
+  },
+}
+
 const LocaleLayout = async ({
   children,
 }: {
