@@ -22,6 +22,7 @@ import AppUnavailable from '@/app/components/app-unavailable'
 import { API_KEY, APP_ID, APP_INFO, isShowPrompt, promptTemplate } from '@/config'
 import type { Annotation as AnnotationType } from '@/types/log'
 import { addFileInfos, sortAgentSorts } from '@/utils/tools'
+import { stripThinkMarkup } from '@/utils/think'
 
 export interface IMainProps {
   params: any
@@ -77,11 +78,6 @@ const createThinkStreamFilter = () => {
     },
   }
 }
-
-const stripThinkMarkup = (text: string) => text
-  .replace(/<think>[\s\S]*?<\/think>/gi, '')
-  .replace(/<think>[\s\S]*$/gi, '')
-  .replace(/<\/think>/gi, '')
 
 const isUploadedFileValue = (value: any) => Boolean(
   value
@@ -304,7 +300,7 @@ const Main: FC<IMainProps> = () => {
           })
           newChatList.push({
             id: item.id,
-            content: item.answer,
+            content: stripThinkMarkup(item.answer || ''),
             agent_thoughts: addFileInfos(item.agent_thoughts ? sortAgentSorts(item.agent_thoughts) : item.agent_thoughts, item.message_files),
             feedback: item.feedback,
             isAnswer: true,
@@ -883,7 +879,7 @@ const Main: FC<IMainProps> = () => {
           (draft) => {
             const current = draft.find(item => item.id === messageReplace.id)
 
-            if (current) { current.content = messageReplace.answer }
+              if (current) { current.content = stripThinkMarkup(messageReplace.answer || '') }
           },
         ))
       },

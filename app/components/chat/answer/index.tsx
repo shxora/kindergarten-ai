@@ -14,6 +14,7 @@ import { randomString } from '@/utils/string'
 import cn from '@/utils/classnames'
 import LoadingAnim from '../loading-anim'
 import s from '../style.module.css'
+import { stripThinkMarkup } from '@/utils/think'
 
 function OperationBtn({ innerContent, onClick, className }: { innerContent: React.ReactNode, onClick?: () => void, className?: string }) {
   return (
@@ -83,21 +84,22 @@ const Answer: FC<IAnswerProps> = ({
   suggestionClick = () => { },
 }) => {
   const { id, content, feedback, suggestedQuestions = [] } = item
+  const visibleContent = stripThinkMarkup(content || '')
 
   const { t } = useTranslation()
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
-    if (!content) return
+    if (!visibleContent) { return }
     try {
-      const plainText = content.replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n').trim()
+      const plainText = visibleContent.replace(/<[^>]+>/g, '').replace(/\n{3,}/g, '\n\n').trim()
       await navigator.clipboard.writeText(plainText)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     }
     catch (e) {
       const ta = document.createElement('textarea')
-      ta.value = content
+      ta.value = visibleContent
       document.body.appendChild(ta)
       ta.select()
       try { document.execCommand('copy') } catch (_) { /* noop */ }
@@ -188,7 +190,7 @@ const Answer: FC<IAnswerProps> = ({
         <div data-maiya-answer-wrap className={`${s.answerWrap} max-w-[calc(100%-3rem)]`}>
           <div className={`${s.answer} relative text-sm text-gray-900`}>
             <div className="maiya-answer-card ml-2 py-3 px-4 rounded-tr-2xl rounded-b-2xl">
-              {(isResponding && !content)
+              {(isResponding && !visibleContent)
                 ? (
                   <div className="flex items-center gap-3 text-gray-500">
                     <span className="maiya-thinking-text text-sm font-semibold">
@@ -196,8 +198,8 @@ const Answer: FC<IAnswerProps> = ({
                     </span>
                   </div>
                 )
-                : content
-                  ? <StreamdownMarkdown content={content} />
+                : visibleContent
+                  ? <StreamdownMarkdown content={visibleContent} />
                   : null}
               {suggestedQuestions.length > 0 && (
                 <div className="mt-3">
@@ -213,7 +215,7 @@ const Answer: FC<IAnswerProps> = ({
             </div>
             <div data-maiya-actions className="absolute bottom-[-14px] right-[-14px] flex flex-row justify-end gap-1">
               {
-                !isResponding && content && (
+                !isResponding && visibleContent && (
                   <div className="maiya-copy-button">
                     <Tooltip selector={`copy-answer-${randomString(16)}`} content={copied ? '已复制' : '复制内容'}>
                       {OperationBtn({
